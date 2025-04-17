@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能开支记录助手</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="main-panel">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <span>智能开支记录助手</span>
+                    <div class="header-actions">
+                        <button id="voice-btn" class="btn-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+                                <path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
+                            </svg>
+                        </button>
+                        <button id="stats-toggle" class="btn-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="chat-body" id="chat-box">
+                    <!-- 消息将在这里动态添加 -->
+                </div>
+                <div class="input-area">
+                    <div class="input-group">
+                        <input type="text" id="user-input" placeholder="输入消费记录或问题..." autofocus>
+                        <button id="send-btn" class="btn-primary">发送</button>
+                    </div>
+                    <div class="suggestions">
+                        <button class="suggestion-btn" data-msg="早餐 15元 餐饮">记录早餐</button>
+                        <button class="suggestion-btn" data-msg="今天花了多少钱">今日消费</button>
+                        <button class="suggestion-btn" data-msg="餐饮支出">餐饮统计</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats-panel" id="stats-panel">
+            <div class="stats-header">
+                <span>消费统计</span>
+                <button id="close-stats" class="btn-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="stats-tabs">
+                <button class="tab-btn active" data-period="today">今日</button>
+                <button class="tab-btn" data-period="week">本周</button>
+                <button class="tab-btn" data-period="month">本月</button>
+            </div>
+            <div class="stats-content">
+                <div class="stats-summary">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-amount">0元</div>
+                        <div class="stat-label">总支出</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-count">0笔</div>
+                        <div class="stat-label">消费次数</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="category-chart"></canvas>
+                </div>
+                <div class="recent-expenses">
+                    <h5>最近消费</h5>
+                    <div class="expenses-list" id="expenses-list">
+                        <!-- 消费列表将在这里动态添加 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
