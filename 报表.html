@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报表页面 - Modern Style</title>
+    <style>
+        /* ===== Imported Styles from my-page.html ===== */
+        :root {
+            --primary-color: #007AFF; /* Example: Apple Blue */
+            --secondary-color: #f5a623; /* Orange for income/contrast */
+            --expense-color: #dc3545; /* Red for expense */
+            --text-primary: #1c1c1e;
+            --text-secondary: #6c757d; /* Softer gray */
+            --background-light: #f8f9fa; /* Lighter, cleaner background */
+            --card-background: #ffffff;
+            --header-background: #343a40; /* Darker, slightly less harsh black */
+            --border-color: #e9ecef; /* Lighter border */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+            margin: 0;
+            background-color: var(--background-light);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        /* Using .page instead of .container for reports page */
+        .page {
+            max-width: 400px; /* Match max-width */
+            margin: auto;
+            background-color: var(--background-light);
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Card Style (Applied to .chart-section) */
+        .card {
+            background-color: var(--card-background);
+            border-radius: 12px; /* Consistent radius */
+            padding: 20px; /* More internal spacing */
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06); /* Softer, slightly larger shadow */
+            border: 1px solid var(--border-color); /* Subtle border */
+        }
+
+        /* Bottom Navigation (Copied from my-page.html) */
+        .bottom-nav {
+            background-color: var(--card-background);
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            z-index: 10;
+            width: 100%;
+            flex-shrink: 0;
+            position: sticky; /* Keep sticky behavior for reports page */
+            bottom: 0;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 5px 8px;
+            transition: color 0.2s ease;
+        }
+        .nav-item .icon {
+            font-size: 22px;
+            margin-bottom: 4px;
+        }
+        .nav-item.active {
+            color: var(--primary-color); /* Adjusted active color if needed, using primary */
+        }
+         .nav-item:hover:not(.active) {
+             color: var(--text-primary);
+         }
+        /* ===== End of Imported Styles ===== */
+
+
+        /* ===== Adapted Styles for Reports Page Components ===== */
+
+        /* 顶部筛选区域 */
+        .filter-bar {
+            background-color: var(--card-background); /* Use card background */
+            padding: 10px 20px 12px 20px; /* Consistent padding */
+            border-bottom: 1px solid var(--border-color); /* Consistent border */
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+        .top-filters {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .top-filters .filter-buttons button {
+            background: var(--background-light); /* Use light background */
+            border: 1px solid var(--border-color); /* Add subtle border */
+            padding: 4px 12px; /* Adjust padding */
+            border-radius: 15px;
+            font-size: 0.8em; /* Adjust font size */
+            margin-right: 6px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+         .top-filters .filter-buttons button:last-child {
+             margin-right: 0;
+         }
+        .top-filters .filter-buttons button.active {
+            background: var(--primary-color); /* Use primary color */
+            color: var(--card-background); /* White text */
+            border-color: var(--primary-color);
+            font-weight: 600; /* Make active bold */
+        }
+         .top-filters .filter-buttons button:hover:not(.active) {
+             border-color: #adb5bd; /* Slightly darker border on hover */
+         }
+
+        .top-filters .filter-icon {
+            font-size: 1.2em;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+         .top-filters .filter-icon:hover {
+             color: var(--text-primary);
+         }
+
+        .date-selector {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1em;
+            font-weight: 500;
+        }
+        .date-selector button {
+            background: none;
+            border: none;
+            font-size: 1.2em;
+            padding: 0 15px;
+            color: var(--text-secondary); /* Use secondary text color */
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+         .date-selector button:hover {
+            color: var(--primary-color);
+         }
+        .date-selector span {
+             color: var(--text-primary); /* Use primary text color */
+             cursor: pointer;
+        }
+         .date-selector span:hover {
+             color: var(--primary-color);
+         }
+
+
+        /* 内容分类标签 */
+        .content-tabs {
+            display: flex;
+            background-color: var(--card-background); /* Use card background */
+            padding: 0 20px; /* Consistent padding */
+            border-bottom: 1px solid var(--border-color); /* Consistent border */
+            overflow-x: auto;
+            white-space: nowrap;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+         .content-tabs::-webkit-scrollbar {
+            display: none;
+        }
+        .content-tabs button {
+            background: none;
+            border: none;
+            padding: 12px 5px; /* Adjust padding */
+            margin-right: 20px; /* Adjust spacing */
+            font-size: 0.95em; /* Slightly smaller font */
+            color: var(--text-secondary); /* Default color */
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+            flex-shrink: 0; /* Prevent buttons from shrinking */
+        }
+        .content-tabs button:last-child {
+             margin-right: 0;
+        }
+        .content-tabs button.active {
+            color: var(--primary-color); /* Use primary color for active text */
+            border-bottom-color: var(--primary-color); /* Use primary color for underline */
+            font-weight: 600; /* Make active bold */
+        }
+
+        /* Chart Section - Applying .card style */
+        .chart-section {
+            /* Inherits .card styles via class attribute in HTML */
+            margin: 15px; /* Use consistent margin */
+            /* Padding, background, border, shadow, radius are from .card */
+        }
+        /* Remove default margin-bottom from last card if using wrapper */
+        /* .content-area .chart-section:last-child { margin-bottom: 0; } */
+
+
+        .chart-section h3 {
+            margin: 0 0 15px 0;
+            font-size: 17px; /* Consistent title size */
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .chart-area {
+            height: 160px;
+            position: relative;
+            margin-bottom: 10px;
+        }
+        /* SVG 图表样式 */
+        .line-chart {
+            width: 100%;
+            height: 100%;
+        }
+        .axis-line {
+            stroke: var(--border-color); /* Use border color */
+            stroke-width: 1;
+        }
+         .x-axis-labels text {
+             font-size: 10px; /* Slightly larger label */
+             fill: var(--text-secondary); /* Use secondary text color */
+             text-anchor: middle;
+         }
+        .data-line {
+            fill: none;
+            stroke-width: 2.5; /* Slightly thicker line */
+        }
+        /* Updated line colors */
+        .expense-line { stroke: var(--expense-color); } /* Red for expense */
+        .income-line { stroke: var(--secondary-color); } /* Orange for income */
+
+        .data-point {
+            stroke-width: 2;
+            fill: var(--card-background); /* White fill */
+        }
+        .expense-point { stroke: var(--expense-color); }
+        .income-point { stroke: var(--secondary-color); }
+
+        .chart-tooltip {
+            position: absolute;
+            right: 10px; /* Adjust position */
+            top: 10px;
+            background: rgba(0,0,0,0.75); /* Slightly darker tooltip */
+            color: white;
+            padding: 5px 10px;
+            border-radius: 6px; /* Consistent radius */
+            font-size: 0.75em;
+            line-height: 1.4;
+            pointer-events: none;
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Add subtle shadow to tooltip */
+        }
+        .chart-summary {
+            font-size: 0.85em; /* Slightly larger summary */
+            color: var(--text-secondary);
+            background-color: var(--background-light); /* Use light background */
+            padding: 8px 12px;
+            border-radius: 6px; /* Consistent radius */
+            text-align: center;
+            margin-top: 10px; /* Add margin above summary */
+            border: 1px solid var(--border-color);
+        }
+
+        /* Main content area to allow scrolling */
+        .main-content {
+             flex-grow: 1; /* Allows this area to fill space and scroll */
+             overflow-y: auto; /* Enable vertical scroll */
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Use .page class instead of .container -->
+    <div class="page reports-page">
+
+        <div class="filter-bar">
+            <div class="top-filters">
+                <div class="filter-buttons">
+                    <button>全部</button>
+                    <button>年</button>
+                    <button class="active">月</button>
+                    <button>更多▾</button> <!-- Consider replacing with icon -->
+                </div>
+                <!-- Replace T with a real filter icon (e.g., SVG or Font Awesome) -->
+                <span class="filter-icon">⚙️</span>
+            </div>
+            <div class="date-selector">
+                <button><</button>
+                <span>2025/04 ▾</span>
+                <button>></button>
+            </div>
+        </div>
+
+        <div class="content-tabs">
+            <button class="active">趋势</button>
+            <button>餐饮美食</button>
+            <button>交通出行</button>
+            <button>购物消费</button>
+            <button>居家生活</button>
+            <button>通讯</button>
+            <button>人情往来</button>
+            <button>医疗健康</button>
+            <!-- Replace with a real menu icon -->
+            <button>☰</button>
+        </div>
+
+        <!-- Wrap scrollable content -->
+        <div class="main-content">
+            <!-- Add card class to chart sections -->
+            <div class="chart-section card expense-chart">
+                <h3>支出趋势</h3>
+                <div class="chart-area">
+                    <svg class="line-chart" viewBox="0 0 300 100" preserveAspectRatio="none">
+                        <g class="x-axis-labels">
+                           <text x="15" y="95">1日</text> <text x="65" y="95">6日</text> <text x="115" y="95">11日</text> <text x="165" y="95">16日</text> <text x="215" y="95">21日</text> <text x="265" y="95">26日</text>
+                       </g>
+                       <line class="axis-line" x1="0" y1="85" x2="300" y2="85"></line>
+                       <polyline class="data-line expense-line" points="15,70 65,60 115,65 165,45 215,50 265,30 295,25"/>
+                       <circle class="data-point expense-point" cx="15" cy="70" r="3"></circle> <circle class="data-point expense-point" cx="65" cy="60" r="3"></circle> <circle class="data-point expense-point" cx="115" cy="65" r="3"></circle> <circle class="data-point expense-point" cx="165" cy="45" r="3"></circle> <circle class="data-point expense-point" cx="215" cy="50" r="3"></circle> <circle class="data-point expense-point" cx="265" cy="30" r="3"></circle> <circle class="data-point expense-point" cx="295" cy="25" r="3"></circle>
+                    </svg>
+                    <div class="chart-tooltip">2025年04月30日<br>支出 0.00</div>
+                </div>
+                <div class="chart-summary">2025年04月, 支出共计0笔, 总支出0.00</div>
+            </div>
+
+            <!-- Add card class to chart sections -->
+            <div class="chart-section card income-chart">
+                <h3>收入趋势</h3>
+                <div class="chart-area">
+                     <svg class="line-chart" viewBox="0 0 300 100" preserveAspectRatio="none">
+                         <g class="x-axis-labels">
+                            <text x="15" y="95">1日</text> <text x="65" y="95">6日</text> <text x="115" y="95">11日</text> <text x="165" y="95">16日</text> <text x="215" y="95">21日</text> <text x="265" y="95">26日</text>
+                        </g>
+                        <line class="axis-line" x1="0" y1="85" x2="300" y2="85"></line>
+                        <polyline class="data-line income-line" points="15,80 65,80 115,40 165,75 215,75 265,70 295,70"/>
+                        <circle class="data-point income-point" cx="15" cy="80" r="3"></circle> <circle class="data-point income-point" cx="65" cy="80" r="3"></circle> <circle class="data-point income-point" cx="115" cy="40" r="3"></circle> <circle class="data-point income-point" cx="165" cy="75" r="3"></circle> <circle class="data-point income-point" cx="215" cy="75" r="3"></circle> <circle class="data-point income-point" cx="265" cy="70" r="3"></circle> <circle class="data-point income-point" cx="295" cy="70" r="3"></circle>
+                     </svg>
+                     <div class="chart-tooltip">2025年04月30日<br>收入 0.00</div>
+                </div>
+                 <div class="chart-summary">2025年04月, 收入共计0笔, 总收入0.00</div>
+            </div>
+             <!-- Add more chart sections here if needed -->
+
+        </div> <!-- End main-content -->
+
+
+        <!-- Bottom Navigation Bar - Using classes from my-page.html -->
+        <!-- Renamed .tab-bar to .bottom-nav and .tab-item to .nav-item -->
+        <nav class="bottom-nav">
+            <a href="#" class="nav-item">
+                <span class="icon">💼</span>
+                账户
+            </a>
+            <a href="#" class="nav-item">
+                <span class="icon">📅</span> <!-- Updated icon -->
+                计划
+            </a>
+            <a href="#" class="nav-item">
+                <span class="icon">🏠</span>
+                首页
+            </a>
+            <a href="#" class="nav-item active"> <!-- Set '报表' as active -->
+                <span class="icon">📊</span>
+                报表
+            </a>
+            <a href="#" class="nav-item">
+                <span class="icon">👤</span>
+                我的
+            </a>
+        </nav>
+    </div> <!-- End page -->
+</body>
+</html>

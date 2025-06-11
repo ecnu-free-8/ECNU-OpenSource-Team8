@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能开支记录助手(ECNU)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+
+        .user-message {
+            background-color: #e3f2fd;
+            padding: 8px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            text-align: right;
+        }
+
+        .bot-message {
+            background-color: #f1f1f1;
+            padding: 8px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        .expense-card {
+            margin-bottom: 10px;
+            border-left: 4px solid #0d6efd;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">智能开支记录助手(ECNU)</h1>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">记录开支</h5>
+                        <div class="chat-container" id="chatBox"></div>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="userInput"
+                                placeholder="输入您的开支记录，例如：今天午餐花了35元，用支付宝支付">
+                            <button class="btn btn-primary" id="sendBtn">发送</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">今日开支</h5>
+                        <div id="dailyExpenses"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">每周开支统计</h5>
+                <canvas id="weeklyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const chatBox = document.getElementById('chatBox');
+            const userInput = document.getElementById('userInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const dailyExpenses = document.getElementById('dailyExpenses');
+            let weeklyChart;
+
+            fetchDailyExpenses();
+            fetchWeeklyData();
+
+            sendBtn.addEventListener('click', sendMessage);
+            userInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') sendMessage();
+            });
+
+            function sendMessage() {
+                const message = userInput.value.trim();
+                if (!message) return;
+
+                addMessage(message, 'user');
+                userInput.value = '';
+
+                fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            addMessage(data.message, 'bot');
+                            fetchDailyExpenses();
+                            fetchWeeklyData();
+                        } else {
+                            addMessage('记录失败: ' + data.message, 'bot');
+                        }
+                    })
+                    .catch(error => {
+                        addMessage('出错了: ' + error, 'bot');
+                    });
+            }
+
+            function addMessage(text, sender) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = sender === 'user' ? 'user-message' : 'bot-message';
+                messageDiv.textContent = text;
+                chatBox.appendChild(messageDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            function fetchDailyExpenses() {
+                fetch('/api/expenses/daily')
+                    .then(response => response.json())
+                    .then(data => {
+                        dailyExpenses.innerHTML = '';
+                        if (data.length === 0) {
+                            dailyExpenses.innerHTML = '<p>今日暂无开支记录</p>';
+                            return;
+                        }
+
+                        data.forEach(expense => {
+                            const card = document.createElement('div');
+                            card.className = 'card expense-card';
+                            card.innerHTML = `
+                                <div class="card-body">
+                                    <h5 class="card-title">${expense.category} - ¥${expense.amount}</h5>
+                                    <p class="card-text">
+                                        <small>支付方式: ${expense.payment_method || '无'}</small><br>
+                                        <small>备注: ${expense.description || '无'}</small>
+                                    </p>
+                                </div>
+                            `;
+                            dailyExpenses.appendChild(card);
+                        });
+                    });
+            }
+
+            function fetchWeeklyData() {
+                fetch('/api/expenses/weekly')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateWeeklyChart(data);
+                    });
+            }
+
+            function updateWeeklyChart(data) {
+                const weeks = data.map(item => '第' + item.week.split('-')[1] + '周');
+                const totals = data.map(item => item.total);
+
+                const ctx = document.getElementById('weeklyChart').getContext('2d');
+
+                if (weeklyChart) {
+                    weeklyChart.destroy();
+                }
+
+                weeklyChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: weeks,
+                        datasets: [{
+                            label: '每周总开支',
+                            data: totals,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '金额 (元)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: '周数'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>
