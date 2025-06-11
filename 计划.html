@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>计划页面 - Modern Style</title>
+    <style>
+        /* ===== Consistent Styles ===== */
+        :root {
+            --primary-color: #007AFF; /* Example: Apple Blue */
+            --secondary-color: #ff9500; /* Example: Apple Orange (used for dots) */
+            --tertiary-color: #34c759;  /* Example: Apple Green (used for dots) */
+            --quaternary-color: #5856d6; /* Example: Apple Indigo (used for dots) */
+            --text-primary: #1c1c1e;
+            --text-secondary: #6c757d; /* Softer gray */
+            --background-light: #f8f9fa; /* Lighter, cleaner background */
+            --card-background: #ffffff;
+            --header-background: #ffffff; /* Using white header for Plan page like typical iOS apps */
+            --border-color: #e9ecef; /* Lighter border */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+            margin: 0;
+            background-color: var(--background-light);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        .page {
+            max-width: 400px; /* Match max-width */
+            margin: auto;
+            background-color: var(--background-light);
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Card Style (Applied to .summary-card) */
+        .card {
+            background-color: var(--card-background);
+            border-radius: 12px; /* Consistent radius */
+            padding: 15px; /* Adjust padding as needed for summary cards */
+            /* margin-bottom: 20px; */ /* Handled by grid gap */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06); /* Softer, slightly larger shadow */
+            border: 1px solid var(--border-color); /* Subtle border */
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            background-color: var(--card-background);
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            z-index: 10;
+            width: 100%;
+            flex-shrink: 0;
+            position: sticky;
+            bottom: 0;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 5px 8px;
+            transition: color 0.2s ease;
+        }
+        .nav-item .icon {
+            font-size: 22px;
+            margin-bottom: 4px;
+        }
+        .nav-item.active {
+            color: var(--primary-color); /* Use primary color for active state */
+        }
+         .nav-item:hover:not(.active) {
+             color: var(--text-primary);
+         }
+        /* ===== End of Consistent Styles ===== */
+
+
+        /* ===== Styles Specific to Plan Page ===== */
+
+        /* Header */
+        .header {
+            padding: 12px 20px; /* Consistent vertical padding */
+            display: flex;
+            justify-content: center; /* Center title */
+            align-items: center;
+            background-color: var(--header-background); /* White header */
+            position: relative; /* For absolute positioning of button */
+            border-bottom: 1px solid var(--border-color); /* Subtle border */
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+        .header h1 {
+            font-size: 17px; /* Standard iOS title size */
+            font-weight: 600; /* Semibold */
+            margin: 0;
+            color: var(--text-primary);
+        }
+        .add-button {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 28px; /* Larger plus icon */
+            font-weight: 300; /* Lighter weight for '+' */
+            color: var(--primary-color); /* Use primary color */
+            text-decoration: none;
+            line-height: 1; /* Prevent extra spacing */
+            padding: 0 5px; /* Click area */
+        }
+         .add-button:hover {
+             opacity: 0.7;
+         }
+
+        /* Summary Cards Area */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Two equal columns */
+            gap: 15px; /* Consistent gap */
+            padding: 20px; /* Consistent padding */
+        }
+        /* Apply .card styles directly in HTML */
+        .summary-card {
+            /* Inherits .card styles */
+            display: flex; /* Keep flex for internal layout */
+            flex-direction: column; /* Stack label and value vertically */
+            align-items: flex-start; /* Align items to the start */
+            justify-content: space-between; /* Push value down if needed */
+            min-height: 80px; /* Give cards some minimum height */
+        }
+        .summary-card .label {
+            font-size: 0.9em;
+            color: var(--text-secondary); /* Use secondary text color */
+            display: flex; /* Align dot and text */
+            align-items: center;
+            margin-bottom: 8px; /* Space between label and value */
+        }
+        .summary-card .label::before {
+            content: '●';
+            margin-right: 6px;
+            font-size: 1.1em; /* Slightly larger dot */
+            line-height: 1;
+            /* Colors assigned below */
+        }
+        /* Assign specific dot colors using variables */
+        .summary-card:nth-child(1) .label::before { color: var(--secondary-color); } /* Orange */
+        .summary-card:nth-child(2) .label::before { color: var(--secondary-color); } /* Orange */
+        .summary-card:nth-child(3) .label::before { color: var(--primary-color); }   /* Blue */
+        .summary-card:nth-child(4) .label::before { color: var(--tertiary-color); }  /* Green */
+        /* Add more colors if needed: */
+        /* .summary-card:nth-child(5) .label::before { color: var(--quaternary-color); } */ /* Indigo */
+
+        .summary-card .value {
+            font-size: 1.6em; /* Larger value font */
+            font-weight: 600; /* Semibold */
+            color: var(--text-primary); /* Use primary text color */
+            margin-top: auto; /* Push value to bottom if label is short */
+        }
+
+        /* Message for No Data */
+        .no-data-message {
+            text-align: center;
+            color: var(--text-secondary); /* Use secondary text color */
+            padding: 50px 20px; /* Consistent padding */
+            flex-grow: 1; /* Takes remaining space */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1em;
+        }
+         /* Optional: Style for when there IS data (hide message) */
+         /* .has-data .no-data-message { display: none; } */
+
+        /* Ensure main content area allows message to push nav down */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="page plan-page">
+        <div class="header">
+            <h1>计划</h1>
+            <a href="#" class="add-button">+</a>
+        </div>
+
+        <!-- Wrap content that should push nav down -->
+        <div class="main-content">
+            <div class="summary-cards">
+                <!-- Add card class to summary cards -->
+                <div class="summary-card card">
+                    <span class="label">今天</span>
+                    <span class="value">0</span>
+                </div>
+                <div class="summary-card card">
+                    <span class="label">近7天</span>
+                    <span class="value">0</span>
+                </div>
+                <div class="summary-card card">
+                    <span class="label">近30天</span>
+                    <span class="value">0</span>
+                </div>
+                <div class="summary-card card">
+                    <span class="label">今年</span>
+                    <span class="value">0</span>
+                </div>
+            </div>
+
+            <div class="no-data-message">
+                暂无数据
+            </div>
+            <!-- Actual plan list items would go here, potentially replacing the no-data message -->
+        </div>
+
+
+        <!-- Bottom Navigation Bar - Using consistent classes -->
+        <nav class="bottom-nav">
+             <a href="#" class="nav-item">
+                <span class="icon">💼</span> <!-- Placeholder: Account -->
+                <span>账户</span>
+            </a>
+            <a href="#" class="nav-item active"> <!-- Set Plan as active -->
+                <span class="icon">📅</span> <!-- Updated icon -->
+                <span>计划</span>
+            </a>
+            <a href="#" class="nav-item">
+                <span class="icon">🏠</span> <!-- Placeholder: Home -->
+                <span>首页</span>
+            </a>
+            <a href="#" class="nav-item">
+                <span class="icon">📊</span> <!-- Placeholder: Reports -->
+                <span>报表</span>
+            </a>
+            <a href="#" class="nav-item">
+                <span class="icon">👤</span> <!-- Placeholder: Me -->
+                <span>我的</span>
+            </a>
+        </nav>
+    </div> <!-- End page -->
+</body>
+</html>

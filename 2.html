@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日常账本</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            max-width: 500px;
+            margin: 0 auto;
+            position: relative;
+            padding-bottom: 60px;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: rgba(255, 235, 205, 0.3);
+        }
+        
+        .status-bar-left, .status-bar-right {
+            display: flex;
+            align-items: center;
+        }
+        
+        .time {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .app-store {
+            margin-left: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .status-icons {
+            display: flex;
+        }
+        
+        .status-icon {
+            width: 16px;
+            height: 16px;
+            margin-left: 10px;
+        }
+        
+        .header {
+            background: linear-gradient(to bottom, #fce38a, #f68a1f);
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 0 0 15px 15px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+        
+        .header-title select {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+        }
+        
+        .header-icons {
+            display: flex;
+        }
+        
+        .icon {
+            width: 24px;
+            height: 24px;
+            margin-left: 20px;
+            color: #333;
+        }
+        
+        .dashboard {
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px;
+            position: relative;
+        }
+        
+        .monthly-stats {
+            margin-bottom: 20px;
+        }
+        
+        .expense-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .expense-amount {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .income-balance {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            justify-content: space-around;
+            background-color: white;
+            border-radius: 15px;
+            padding: 10px;
+            margin: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .nav-tab {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #666;
+        }
+        
+        .nav-tab.active {
+            color: #ff6b6b;
+        }
+        
+        .tab-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .tab-text {
+            font-size: 12px;
+        }
+        
+        .budget-section {
+            background-color: white;
+            border-radius: 15px;
+            padding: 15px;
+            margin: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .budget-text {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .budget-subtext {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .settings-link {
+            color: #666;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        
+        .empty-state {
+            background-color: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 15px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+        }
+        
+        .empty-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+        }
+        
+        .empty-text {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .empty-subtext {
+            font-size: 14px;
+            color: #999;
+        }
+        
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #666;
+        }
+        
+        .nav-item.active {
+            color: #333;
+        }
+        
+        .plus-icon {
+            background-color: #ff9500;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+        
+        /* Background illustration */
+        .background-illustration {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            opacity: 0.6;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-title">
+            <select>
+                <option>日常账本</option>
+            </select>
+        </div>
+        <div class="header-icons">
+            <div class="icon">👕</div>
+            <div class="icon">🔍</div>
+            <div class="icon">⋯</div>
+        </div>
+    </div>
+    
+    <div class="dashboard">
+        <div class="monthly-stats">
+            <div class="expense-title">本月支出</div>
+            <div class="expense-amount">0.00</div>
+            <div class="income-balance">
+                <span>本月收入 0.00</span>
+                <span>本月结余 0.00</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="nav-tabs">
+        <a href="#" class="nav-tab active">
+            <div class="tab-icon">❤️</div>
+            <div class="tab-text">速记</div>
+        </a>
+        <a href="#" class="nav-tab">
+            <div class="tab-icon">📋</div>
+            <div class="tab-text">明细</div>
+        </a>
+        <a href="#" class="nav-tab">
+            <div class="tab-icon">🗓️</div>
+            <div class="tab-text">日历</div>
+        </a>
+        <a href="#" class="nav-tab">
+            <div class="tab-icon">🔄</div>
+            <div class="tab-text">周期账</div>
+        </a>
+        <a href="#" class="nav-tab">
+            <div class="tab-icon">⊞</div>
+            <div class="tab-text">全部</div>
+        </a>
+    </div>
+    
+    <div class="budget-section">
+        <div>
+            <div class="budget-text">支出月预算</div>
+            <div class="budget-subtext">节制使我更富足</div>
+        </div>
+        <a href="#" class="settings-link">
+            去设置 →
+        </a>
+    </div>
+    
+    <div class="empty-state">
+        <div class="empty-icon">🍹</div>
+        <div class="empty-text">记账就是记生活</div>
+        <div class="empty-subtext">财务自由，从记一笔开始</div>
+    </div>
+    
+    <div class="bottom-nav">
+        <a href="#" class="nav-item">
+            <div class="icon">🏦</div>
+            <div class="tab-text">账户</div>
+        </a>
+        <a href="#" class="nav-item">
+            <div class="icon">✔️</div>
+            <div class="tab-text">计划</div>
+        </a>
+        <a href="#" class="nav-item">
+            <div class="plus-icon">+</div>
+        </a>
+        <a href="#" class="nav-item">
+            <div class="icon">📊</div>
+            <div class="tab-text">报表</div>
+        </a>
+        <a href="#" class="nav-item">
+            <div class="icon">👤</div>
+            <div class="tab-text">我的</div>
+        </a>
+    </div>
+    
+    <script>
+        // Simple JavaScript for basic interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click listeners to navigation tabs
+            const navTabs = document.querySelectorAll('.nav-tab');
+            navTabs.forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    navTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+            
+            // Add click listener to bottom nav items
+            const bottomNavItems = document.querySelectorAll('.nav-item');
+            bottomNavItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    bottomNavItems.forEach(i => i.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
