@@ -1,15 +1,18 @@
-from flask import Flask, render_template, request, jsonify
+from flask import render_template, request, jsonify
+from datetime import datetime
+
 from kaiyuan.backend.config import Config
 from kaiyuan.backend.models import *
+
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
+
 
 @app.route('/')
 def home():
     return render_template('index.html')
 
-from datetime import datetime, timedelta
 
 @app.route('/api/summary', methods=['GET'])
 def get_summary():
@@ -57,6 +60,7 @@ def get_summary():
             "balance": round(balance, 2)
         }
     })
+
 
 @app.route('/api/transactions', methods=['GET'])
 def get_transactions():
@@ -195,6 +199,7 @@ def update_budget_for_transaction(user_id, category, amount_change, transaction_
     for budget in budgets:
         budget.current_amount = max(budget.current_amount + amount_change, 0)  # 防止负值
         db.session.add(budget)
+
 
 # ============ 预算计划接口 ============
 
@@ -351,36 +356,60 @@ def delete_category(id):
 
 # ============ 报表分析接口 ============
 
+
+
+
 @app.route('/api/reports', methods=['GET'])
 def get_reports():
     """根据时间范围获取支出分类统计数据"""
     user_id = request.args.get('user_id', type=int)
-    range_type = request.args.get('range', 'month')
+    range_type = request.args.get('range', 'month')  # month/quarter/year
 
     if not user_id:
         return jsonify({"success": False, "error": "Missing user_id"}), 400
 
-    title_map = {
-        'month': '本月支出分类',
-        'quarter': '本季度支出分类',
-        'year': '本年度支出分类'
-    }
+    now = datetime.utcnow()
 
-    # 示例数据（实际应按时间范围筛选）
-    categories = [
-        {"name": "餐饮", "amount": 580.0},
-        {"name": "交通", "amount": 320.0},
-        {"name": "购物", "amount": 234.0}
-    ]
+    if range_type == 'month':
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        title = '本月支出分类'
+    elif range_type == 'quarter':
+        quarter = (now.month - 1) // 3 + 1
+        quarter_start_month = 3 * (quarter - 1) + 1
+        start_date = now.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        title = '本季度支出分类'
+    elif range_type == 'year':
+        start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        title = '本年度支出分类'
+    else:
+        return jsonify({"success": False, "error": "Invalid range type"}), 400
+
+    # 查询时间范围内所有支出类交易
+    transactions = Transaction.query.filter(
+        Transaction.user_id == user_id,
+        Transaction.type == 'expense',
+        Transaction.date >= start_date
+    ).all()
+
+    # 按分类统计金额
+    category_summary = {}
+    for t in transactions:
+        if t.category not in category_summary:
+            category_summary[t.category] = 0
+        category_summary[t.category] += t.amount
+
+    categories = [{"name": k, "amount": round(v, 2)} for k, v in category_summary.items()]
+    total = round(sum(category_summary.values()), 2)
 
     return jsonify({
         "success": True,
         "data": {
-            "title": title_map.get(range_type, '未知'),
-            "total": sum(c['amount'] for c in categories),
+            "title": title,
+            "total": total,
             "categories": categories
         }
     })
+
 
 if __name__ == '__main__':
     with app.app_context():
