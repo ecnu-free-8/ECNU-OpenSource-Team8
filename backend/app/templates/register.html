@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <form id="registerForm">
+            <h2>创建账户</h2>
+            <div id="registerMessage" class="message-feedback" style="display: none;"></div>
+            <div class="input-group">
+                <label for="reg-username">用户名:</label>
+                <input type="text" id="reg-username" name="username" required>
+                <div class="error-message" id="usernameError"></div>
+            </div>
+            <div class="input-group">
+                <label for="reg-email">邮箱:</label>
+                <input type="email" id="reg-email" name="email" required>
+                <div class="error-message" id="emailError"></div>
+            </div>
+            <div class="input-group">
+                <label for="reg-password">密码:</label>
+                <input type="password" id="reg-password" name="password" required>
+                <div class="error-message" id="passwordError"></div>
+            </div>
+            <div class="input-group">
+                <label for="confirm-password">确认密码:</label>
+                <input type="password" id="confirm-password" name="confirmPassword" required>
+                <div class="error-message" id="confirmPasswordError"></div>
+            </div>
+            <button type="submit">注册</button>
+            <p class="message">已经有账户了? <a href="{{ url_for('login') }}">立即登录</a></p>
+        </form>
+    </div>
+    <script src="{{ url_for('static', filename='register.js') }}"></script>
+</body>
+</html>
