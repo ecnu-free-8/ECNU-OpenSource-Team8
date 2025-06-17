@@ -21,7 +21,7 @@
 ## API 端点
 
 ### 登录
-- **URL**: `/login`
+- **URL**: `/api/login`
 - **方法**: `POST`
 - **请求体**:
   ```json
@@ -47,7 +47,7 @@
     ```
 
 ### 注册
-- **URL**: `/register`
+- **URL**: `/api/register`
 - **方法**: `POST`
 - **请求体**:
   ```json
@@ -84,7 +84,7 @@ import axios from 'axios';
 axios.defaults.withCredentials = true;
 
 // 或者在单个请求中设置
-axios.get('http://localhost:5123/api/v1/test', {
+axios.get('http://localhost:5123/api/test', {
     withCredentials: true // <-- 关键配置！
 }).then(response => {
     console.log(response.data); // 打印用户名，如果未登录则返回 No user logged in
