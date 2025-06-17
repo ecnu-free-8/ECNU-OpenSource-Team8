@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // formData.append('email', email);
 
             try {
-                const response = await fetch('/register', { // 你的后端注册API端点
+                const response = await fetch('/api/register', { // 你的后端注册API端点
                     method: 'POST',
                     body: formData
                 });
