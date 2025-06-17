@@ -18,7 +18,7 @@ def register_page():
 def login_page():
     return render_template('login.html')
 
-@app.route('/register', methods=['POST'])
+@app.route('/api/register', methods=['POST'])
 def register():
     username = request.form.get('username')
     password = request.form.get('password')
@@ -40,7 +40,7 @@ def register():
     finally:
         conn.close()
 
-@app.route('/login', methods=['POST'])
+@app.route('/api/login', methods=['POST'])
 def login():
     username = request.form.get('username')
     password = request.form.get('password')

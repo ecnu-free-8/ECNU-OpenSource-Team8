@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('password', password);
 
             try {
-                const response = await fetch('/login', { // 你的后端登录API端点
+                const response = await fetch('/api/login', { // 你的后端登录API端点
                     method: 'POST',
                     body: formData
                 });
