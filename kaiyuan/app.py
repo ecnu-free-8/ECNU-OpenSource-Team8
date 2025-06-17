@@ -1,164 +1,415 @@
-from flask import Flask, render_template, request, jsonify
-from datetime import datetime, timedelta
-import json
-import os
+from flask import render_template, request, jsonify
+
+from kaiyuan.backend.config import Config
+from kaiyuan.backend.models import *
 
 app = Flask(__name__)
+app.config.from_object(Config)
+db.init_app(app)
 
-# 数据存储文件
-DATA_FILE = 'expenses.json'
-
-# 初始化数据
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, 'r') as f:
-        expenses = json.load(f)
-else:
-    expenses = []
-
-categories = ["餐饮", "交通", "娱乐", "购物", "住房", "医疗", "其他"]
-
-def save_data():
-    """保存数据到文件"""
-    with open(DATA_FILE, 'w') as f:
-        json.dump(expenses, f, ensure_ascii=False, indent=2)
 
 @app.route('/')
 def home():
     return render_template('index.html')
 
-@app.route('/api/expenses', methods=['GET', 'POST'])
-def handle_expenses():
-    if request.method == 'POST':
-        data = request.json
-        try:
-            expense = {
-                "description": data['description'],
-                "amount": float(data['amount']),
-                "category": data['category'],
-                "date": datetime.now().strftime("%Y-%m-%d %H:%M")
-            }
-            expenses.append(expense)
-            save_data()
-            return jsonify({"status": "success", "data": get_today_summary()})
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 400
-    else:
-        period = request.args.get('period', 'today')
-        return jsonify(get_expenses_data(period))
 
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    user_input = request.json.get('message')
-    response = process_message(user_input)
-    return jsonify({'response': response})
+@app.route('/api/summary', methods=['GET'])
+def get_summary():
+    """获取用户当前月份的财务摘要：收入、支出、结余"""
+    user_id = request.args.get('user_id', type=int)
+    if not user_id:
+        return jsonify({"success": False, "error": "Missing user_id"}), 400
 
-def process_message(message):
-    """处理用户输入并生成响应"""
-    message = message.lower().strip()
-    print(f"用户输入: {message}")
-    # 解析消费记录
-    if any(word in message for word in ["花了", "消费", "支出", "买了", "花费"]):
-        try:
-            parts = message.split()
-            if len(parts) >= 3 and "元" in parts[1]:
-                amount = float(parts[1].replace("元", ""))
-                category = parts[2] if parts[2] in categories else "其他"
-                description = parts[0]
-                
-                expense = {
-                    "description": description,
-                    "amount": amount,
-                    "category": category,
-                    "date": datetime.now().strftime("%Y-%m-%d %H:%M")
-                }
-                expenses.append(expense)
-                save_data()
-                
-                return f"✅ 已记录: {description} {amount}元 ({category})\n{get_today_summary()}"
-        except Exception as e:
-            return "❌ 格式错误，请使用: '描述 金额 类别' 例如: '午餐 30元 餐饮'"
-    
-    # 查询消费
-    elif any(word in message for word in ["今天花了", "今日消费", "今天支出", "今日花了", "今日花费", "今天花费"]):
-        return get_today_summary()
-    
-    elif any(word in message for word in ["本周", "这周"]):
-        return get_weekly_summary()
-    
-    elif any(word in message for word in ["本月", "这个月"]):
-        return get_monthly_summary()
-    
-    elif any(word in message for word in categories):
-        return get_category_summary(message)
-    
-    else:
-        return """我可以帮你记录和分析日常开支，请告诉我：
-1. 你的消费记录（例：早餐 15元 餐饮）
-2. 查询消费（例：今天/本周/本月消费）
-3. 查询分类消费（例：餐饮支出）"""
+    # 获取当前时间
+    now = datetime.utcnow()
 
-def get_expenses_data(period='today'):
-    """获取不同时间段的消费数据"""
-    now = datetime.now()
-    if period == 'today':
-        date_str = now.strftime("%Y-%m-%d")
-        filtered = [e for e in expenses if e['date'].startswith(date_str)]
-    elif period == 'week':
-        week_start = now - timedelta(days=now.weekday())
-        filtered = [e for e in expenses if datetime.strptime(e['date'], "%Y-%m-%d %H:%M") >= week_start]
-    elif period == 'month':
-        month_start = now.replace(day=1)
-        filtered = [e for e in expenses if datetime.strptime(e['date'], "%Y-%m-%d %H:%M") >= month_start]
+    # 获取本月第一天（0点0分0秒）
+    first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # 获取下个月第一天（作为查询结束时间）
+    if now.month == 12:
+        next_month = now.replace(year=now.year + 1, month=1, day=1)
     else:
-        filtered = expenses
-    
-    return {
-        'expenses': filtered,
-        'summary': {
-            'total': sum(e['amount'] for e in filtered),
-            'count': len(filtered),
-            'by_category': get_category_summary_data(filtered)
+        next_month = now.replace(month=now.month + 1, day=1)
+
+    # 查询本月的交易记录
+    income_records = Transaction.query.filter(
+        Transaction.user_id == user_id,
+        Transaction.type == 'income',
+        Transaction.date >= first_day,
+        Transaction.date < next_month
+    ).all()
+
+    expense_records = Transaction.query.filter(
+        Transaction.user_id == user_id,
+        Transaction.type == 'expense',
+        Transaction.date >= first_day,
+        Transaction.date < next_month
+    ).all()
+
+    income = sum(t.amount for t in income_records)
+    expense = sum(t.amount for t in expense_records)
+    balance = income - expense
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "expense": round(expense, 2),
+            "income": round(income, 2),
+            "balance": round(balance, 2)
         }
-    }
+    })
 
-def get_today_summary():
-    today = datetime.now().strftime("%Y-%m-%d")
-    today_expenses = [e for e in expenses if e['date'].startswith(today)]
-    return format_summary(today_expenses, "今日")
 
-def get_weekly_summary():
-    week_start = datetime.now() - timedelta(days=datetime.now().weekday())
-    weekly_expenses = [e for e in expenses if datetime.strptime(e['date'], "%Y-%m-%d %H:%M") >= week_start]
-    return format_summary(weekly_expenses, "本周")
+@app.route('/api/transactions', methods=['GET'])
+def get_transactions():
+    """获取用户的最近交易记录，默认按时间倒序返回10条"""
+    user_id = request.args.get('user_id', type=int)
+    limit = request.args.get('limit', default=10, type=int)
 
-def get_monthly_summary():
-    month_start = datetime.now().replace(day=1)
-    monthly_expenses = [e for e in expenses if datetime.strptime(e['date'], "%Y-%m-%d %H:%M") >= month_start]
-    return format_summary(monthly_expenses, "本月")
+    if not user_id:
+        return jsonify({"success": False, "error": "Missing user_id"}), 400
 
-def get_category_summary(category):
-    category_expenses = [e for e in expenses if e['category'] == category]
-    return format_summary(category_expenses, f"{category}类")
+    transactions = Transaction.query.filter_by(user_id=user_id).order_by(Transaction.date.desc()).limit(limit).all()
+    return jsonify({
+        "success": True,
+        "data": [{
+            "id": t.id,
+            "description": t.description,
+            "amount": t.amount,
+            "category": t.category,
+            "date": t.date.isoformat(),
+            "type": t.type
+        } for t in transactions]
+    })
 
-def get_category_summary_data(expense_list):
-    """按分类汇总数据"""
-    by_category = {}
-    for e in expense_list:
-        by_category[e['category']] = by_category.get(e['category'], 0) + e['amount']
-    return by_category
 
-def format_summary(expense_list, period_name):
-    if not expense_list:
-        return f"{period_name}还没有消费记录"
-    
-    total = sum(e['amount'] for e in expense_list)
-    by_category = get_category_summary_data(expense_list)
-    
-    summary = f"📊 {period_name}消费总计: {total}元 ({len(expense_list)}笔)\n"
-    for cat, amount in by_category.items():
-        summary += f"- {cat}: {amount}元\n"
-    
-    return summary
+@app.route('/api/transactions', methods=['POST'])
+def create_transaction():
+    """手动添加一条交易记录"""
+    data = request.json
+    required_fields = ['amount', 'type', 'category', 'user_id']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"success": False, "error": f"Missing {field}"}), 400
+
+    new = Transaction(
+        amount=data['amount'],
+        type=data['type'],
+        category=data['category'],
+        description=data.get('description'),
+        date=datetime.utcnow(),
+        user_id=data['user_id']
+    )
+    db.session.add(new)
+    db.session.commit()
+
+    # 只有支出类交易才更新预算
+    if new.type == 'expense':
+        update_budget_for_transaction(new.user_id, new.category, new.amount, new.date)
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "id": new.id,
+            "amount": new.amount,
+            "type": new.type,
+            "category": new.category,
+            "description": new.description,
+            "date": new.date.isoformat()
+        }
+    }), 201
+
+
+@app.route('/api/transactions/<int:id>', methods=['PUT'])
+def update_transaction(id):
+    """更新指定 ID 的交易记录"""
+    data = request.json
+    trans = Transaction.query.get_or_404(id)
+
+    old_category = trans.category
+    old_amount = trans.amount
+    old_date = trans.date
+    old_type = trans.type
+
+    # 更新字段
+    trans.amount = data.get('amount', trans.amount)
+    trans.type = data.get('type', trans.type)
+    trans.category = data.get('category', trans.category)
+    trans.description = data.get('description', trans.description)
+
+    db.session.commit()
+
+    # 如果是支出类型，并且分类或金额发生变化，则更新预算
+    if old_type == 'expense':
+        # 先减去旧值
+        update_budget_for_transaction(trans.user_id, old_category, -old_amount, old_date)
+
+    if trans.type == 'expense':
+        # 再加上新值
+        update_budget_for_transaction(trans.user_id, trans.category, trans.amount, trans.date)
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "id": trans.id,
+            "amount": trans.amount,
+            "type": trans.type,
+            "category": trans.category,
+            "description": trans.description,
+            "date": trans.date.isoformat()
+        }
+    })
+
+
+@app.route('/api/transactions/<int:id>', methods=['DELETE'])
+def delete_transaction(id):
+    """删除指定 ID 的交易记录"""
+    trans = Transaction.query.get_or_404(id)
+    db.session.delete(trans)
+    db.session.commit()
+
+    # 同步预算
+    if trans.type == 'expense':
+        update_budget_for_transaction(trans.user_id, trans.category, -trans.amount, trans.date)
+
+    return jsonify({"success": True, "data": "删除成功"})
+
+
+def update_budget_for_transaction(user_id, category, amount_change, transaction_date):
+    """
+    当交易记录变更时，更新对应的预算
+    :param user_id: 用户ID
+    :param category: 分类名称
+    :param amount_change: 要增加/减少的金额
+    :param transaction_date: 交易时间
+    """
+    if not category or amount_change == 0:
+        return
+
+    # 找到所有该用户、该分类、时间范围内有效的预算
+    budgets = Budget.query.filter(
+        Budget.user_id == user_id,
+        Budget.category == category,
+        Budget.start_date <= transaction_date,
+        Budget.end_date >= transaction_date
+    ).all()
+
+    for budget in budgets:
+        budget.current_amount = max(budget.current_amount + amount_change, 0)  # 防止负值
+        db.session.add(budget)
+
+
+# ============ 预算计划接口 ============
+
+@app.route('/api/plans', methods=['GET'])
+def get_budgets():
+    """获取用户的所有预算计划"""
+    user_id = request.args.get('user_id', type=int)
+    if not user_id:
+        return jsonify({"success": False, "error": "Missing user_id"}), 400
+
+    budgets = Budget.query.filter_by(user_id=user_id).all()
+    return jsonify({
+        "success": True,
+        "data": [{
+            "id": b.id,
+            "name": b.name,
+            "target_amount": b.target_amount,
+            "current_amount": b.current_amount,
+            "category": b.category
+        } for b in budgets]
+    })
+
+
+@app.route('/api/plans', methods=['POST'])
+def create_budget():
+    """创建一个新的预算计划"""
+    data = request.json
+    required_fields = ['name', 'target_amount', 'category', 'user_id']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"success": False, "error": f"Missing {field}"}), 400
+
+    category_name = data['category']
+
+    # 检查 category 是否是预设分类之一
+    existing_category = Category.query.filter_by(name=category_name).first()
+    if not existing_category:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid category: {category_name}"
+        }), 400
+
+    budget = Budget(
+        name=data['name'],
+        target_amount=data['target_amount'],
+        current_amount=0,
+        category=category_name,
+        user_id=data['user_id']
+    )
+
+    db.session.add(budget)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "id": budget.id,
+            "name": budget.name,
+            "target_amount": budget.target_amount,
+            "current_amount": budget.current_amount,
+            "category": budget.category
+        }
+    }), 201
+
+
+# ============ 分类管理接口 ============
+
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    """获取所有支出分类（预设 + 自定义）"""
+    categories = Category.query.all()
+    return jsonify({
+        "success": True,
+        "data": [{
+            "id": c.id,
+            "name": c.name
+        } for c in categories]
+    })
+
+
+@app.route('/api/categories', methods=['POST'])
+def add_category():
+    """添加一个新的支出分类"""
+    data = request.json
+    if 'name' not in data:
+        return jsonify({"success": False, "error": "Missing name"}), 400
+
+    new_name = data['name'].strip()
+
+    # 检查是否已存在同名分类
+    existing = Category.query.filter(db.func.lower(Category.name) == db.func.lower(new_name)).first()
+    if existing:
+        return jsonify({
+            "success": False,
+            "error": f"分类 '{new_name}' 已存在"
+        }), 400
+
+    new = Category(name=new_name)
+    db.session.add(new)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "id": new.id,
+            "name": new.name
+        }
+    }), 201
+
+
+@app.route('/api/categories/<int:id>', methods=['PUT'])
+def update_category(id):
+    """更新指定 ID 的分类名称"""
+    data = request.json
+    new_name = data.get('name')
+
+    if not new_name:
+        return jsonify({"success": False, "error": "Missing name"}), 400
+
+    cat = Category.query.get_or_404(id)
+
+    # 检查是否有其他分类使用了相同的名称（排除自己）
+    existing = Category.query.filter(
+        db.func.lower(Category.name) == db.func.lower(new_name),
+        Category.id != cat.id
+    ).first()
+
+    if existing:
+        return jsonify({
+            "success": False,
+            "error": f"分类 '{new_name}' 已存在"
+        }), 400
+
+    cat.name = new_name
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "id": cat.id,
+            "name": cat.name
+        }
+    })
+
+
+@app.route('/api/categories/<int:id>', methods=['DELETE'])
+def delete_category(id):
+    """删除指定 ID 的支出分类"""
+    cat = Category.query.get_or_404(id)
+    db.session.delete(cat)
+    db.session.commit()
+    return jsonify({"success": True, "data": "分类删除成功"})
+
+
+# ============ 报表分析接口 ============
+
+
+@app.route('/api/reports', methods=['GET'])
+def get_reports():
+    """根据时间范围获取支出分类统计数据"""
+    user_id = request.args.get('user_id', type=int)
+    range_type = request.args.get('range', 'month')  # month/quarter/year
+
+    if not user_id:
+        return jsonify({"success": False, "error": "Missing user_id"}), 400
+
+    now = datetime.utcnow()
+
+    if range_type == 'month':
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        title = '本月支出分类'
+    elif range_type == 'quarter':
+        quarter = (now.month - 1) // 3 + 1
+        quarter_start_month = 3 * (quarter - 1) + 1
+        start_date = now.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        title = '本季度支出分类'
+    elif range_type == 'year':
+        start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        title = '本年度支出分类'
+    else:
+        return jsonify({"success": False, "error": "Invalid range type"}), 400
+
+    # 查询时间范围内所有支出类交易
+    transactions = Transaction.query.filter(
+        Transaction.user_id == user_id,
+        Transaction.type == 'expense',
+        Transaction.date >= start_date
+    ).all()
+
+    # 按分类统计金额
+    category_summary = {}
+    for t in transactions:
+        if t.category not in category_summary:
+            category_summary[t.category] = 0
+        category_summary[t.category] += t.amount
+
+    categories = [{"name": k, "amount": round(v, 2)} for k, v in category_summary.items()]
+    total = round(sum(category_summary.values()), 2)
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "title": title,
+            "total": total,
+            "categories": categories
+        }
+    })
+
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+        print("✅ 数据库和所有表已成功创建！")
+    app.run()
