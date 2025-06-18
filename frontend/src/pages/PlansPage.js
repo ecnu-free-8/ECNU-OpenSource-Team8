@@ -1,14 +1,26 @@
-import React from 'react';
-import { Plus, Target, Loader2, AlertCircle } from 'lucide-react';
-import { useBudgets } from '../hooks/useBudgets';
+import React, { useState } from 'react';
+import { Plus, Target, Loader2, AlertCircle, X, Save } from 'lucide-react';
+import { useBudgets, useCreateBudget } from '../hooks/useBudgets';
 
 const PlansPage = () => {
+  // 状态管理
+  const [showAddBudget, setShowAddBudget] = useState(false);
+  const [newBudget, setNewBudget] = useState({
+    name: '',
+    target_amount: '',
+    category: '',
+    type: 'expense' // expense 或 saving
+  });
+
   // 使用hooks获取预算数据
   const {
     data: budgets,
     isLoading,
     error
   } = useBudgets();
+
+  // 创建预算的mutation
+  const createBudgetMutation = useCreateBudget();
 
   const formatAmount = (amount) => {
     return `¥${amount.toLocaleString()}`;
@@ -32,7 +44,7 @@ const PlansPage = () => {
 
   const getBudgetStatus = (current, target, type) => {
     const percentage = getUsagePercentage(current, target);
-    
+
     if (type === 'saving') {
       if (percentage >= 100) return { text: '目标达成！', color: 'text-green-600 dark:text-green-400' };
       if (percentage >= 75) return { text: '即将达成', color: 'text-blue-600 dark:text-blue-400' };
@@ -44,6 +56,63 @@ const PlansPage = () => {
       return { text: '预算充足', color: 'text-green-600 dark:text-green-400' };
     }
   };
+
+  // 处理添加新预算
+  const handleAddBudget = async () => {
+    if (!newBudget.name || !newBudget.target_amount || !newBudget.category) {
+      alert('请填写完整的预算信息');
+      return;
+    }
+
+    if (isNaN(newBudget.target_amount) || parseFloat(newBudget.target_amount) <= 0) {
+      alert('请输入有效的金额');
+      return;
+    }
+
+    try {
+      await createBudgetMutation.mutateAsync({
+        name: newBudget.name,
+        target_amount: parseFloat(newBudget.target_amount),
+        category: newBudget.category,
+        type: newBudget.type
+      });
+
+      // 重置表单
+      setNewBudget({
+        name: '',
+        target_amount: '',
+        category: '',
+        type: 'expense'
+      });
+      setShowAddBudget(false);
+    } catch (error) {
+      alert('创建预算失败，请重试');
+    }
+  };
+
+  // 处理表单输入变化
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewBudget(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+
+
+  // 预定义的分类选项
+  const categoryOptions = [
+    { value: '餐饮', label: '🍽 餐饮', icon: '🍽' },
+    { value: '交通', label: '🚗 交通', icon: '🚗' },
+    { value: '购物', label: '🛍 购物', icon: '🛍' },
+    { value: '娱乐', label: '🎮 娱乐', icon: '🎮' },
+    { value: '医疗', label: '💊 医疗', icon: '💊' },
+    { value: '教育', label: '📚 教育', icon: '📚' },
+    { value: '住房', label: '🏠 住房', icon: '🏠' },
+    { value: '储蓄', label: '💰 储蓄', icon: '💰' },
+    { value: '其他', label: '📦 其他', icon: '📦' }
+  ];
 
   return (
     <div className="p-4 space-y-6">
@@ -143,10 +212,155 @@ const PlansPage = () => {
       )}
 
       {/* 添加新预算按钮 */}
-      <button className="w-full bg-blue-50 dark:bg-blue-900/20 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-xl p-6 flex items-center justify-center space-x-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200">
+      <button
+        onClick={() => setShowAddBudget(true)}
+        className="w-full bg-blue-50 dark:bg-blue-900/20 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-xl p-6 flex items-center justify-center space-x-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200"
+      >
         <Plus className="w-5 h-5" />
         <span className="font-medium">添加新预算</span>
       </button>
+
+      {/* 添加预算模态框 */}
+      {showAddBudget && (
+        <div className="absolute inset-0 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl animate-in fade-in zoom-in-95 duration-300">
+
+
+            {/* 模态框头部 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">添加新预算</h3>
+              <button
+                onClick={() => setShowAddBudget(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+              >
+                <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* 模态框内容 */}
+            <div className="p-6 space-y-6">
+              {/* 预算名称 */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  预算名称
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={newBudget.name}
+                  onChange={handleInputChange}
+                  placeholder="例如：月度餐饮预算"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base"
+                />
+              </div>
+
+              {/* 预算类型 */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  预算类型
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setNewBudget(prev => ({ ...prev, type: 'expense' }))}
+                    className={`p-4 rounded-lg border-2 transition-colors duration-200 ${
+                      newBudget.type === 'expense'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <span className="text-3xl block mb-2">💸</span>
+                      <span className="text-base font-medium">支出预算</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewBudget(prev => ({ ...prev, type: 'saving' }))}
+                    className={`p-4 rounded-lg border-2 transition-colors duration-200 ${
+                      newBudget.type === 'saving'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <span className="text-3xl block mb-2">💰</span>
+                      <span className="text-base font-medium">储蓄目标</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* 分类选择 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  分类
+                </label>
+                <select
+                  name="category"
+                  value={newBudget.category}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">请选择分类</option>
+                  {categoryOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 目标金额 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {newBudget.type === 'saving' ? '储蓄目标' : '预算金额'}
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">¥</span>
+                  <input
+                    type="number"
+                    name="target_amount"
+                    value={newBudget.target_amount}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 模态框底部 */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowAddBudget(false)}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleAddBudget}
+                disabled={createBudgetMutation.isPending}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-lg transition-colors duration-200 flex items-center space-x-2"
+              >
+                {createBudgetMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>创建中...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>创建预算</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
