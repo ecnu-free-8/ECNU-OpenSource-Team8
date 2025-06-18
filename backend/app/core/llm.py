@@ -1,6 +1,6 @@
 import json
 import datetime
-import functions as F
+import app.core.functions as F
 from openai import OpenAI
 
 available_functions = {
@@ -82,7 +82,7 @@ def call_llm(prompt, username, functions=None):
         'result': result,
     }
 
-def chat_llm(prompt, username):
+def chat_llm(username, prompt):
     """
     这是一个二阶段的调用函数，首先调用call_llm函数获取结果：
     如果结果状态为False，则直接使用OpenAI的API进行聊天回复。

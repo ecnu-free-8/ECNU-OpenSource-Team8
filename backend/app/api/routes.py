@@ -1,9 +1,7 @@
 from flask import request, jsonify
 from . import bp
 from flask import session, redirect, url_for, render_template
-# from app.core.chat_process import (
-#     generate_tree
-# )
+from app.core.llm import call_llm, chat_llm
 @bp.route('/test', methods=['GET'])
 def test():
     username = session.get('username', 'No user logged in')
@@ -29,3 +27,18 @@ def summary():
             "balance": 5920.00
         }
     }), 200
+    
+    
+@bp.route('/chat', methods=['POST'])
+def chat():
+    username = session.get('username', 'No user logged in')
+    if username == 'No user logged in':
+        return jsonify({
+            "success": False,
+            "error": "用户不存在"
+        }), 401
+    return chat_llm(
+        username,
+        request.json.get('prompt', '')
+    )
+                       
