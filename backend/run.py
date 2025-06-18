@@ -3,7 +3,9 @@ from app import create_app
 import sqlite3
 from dbinit import init_db
 import os
+
 app = create_app('development')
+
 
 @app.route('/')
 def index():

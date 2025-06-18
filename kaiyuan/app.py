@@ -1,7 +1,7 @@
 from flask import render_template, request, jsonify
 
-from kaiyuan.backend.config import Config
-from kaiyuan.backend.models import *
+from kaiyuan.mysqlconfig import Config
+from backend.app.models import *
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -16,9 +16,9 @@ def home():
 @app.route('/api/summary', methods=['GET'])
 def get_summary():
     """获取用户当前月份的财务摘要：收入、支出、结余"""
-    user_id = request.args.get('user_id', type=int)
-    if not user_id:
-        return jsonify({"success": False, "error": "Missing user_id"}), 400
+    username = request.args.get('username', type=int)
+    if not username:
+        return jsonify({"success": False, "error": "Missing username"}), 400
 
     # 获取当前时间
     now = datetime.utcnow()
@@ -34,14 +34,14 @@ def get_summary():
 
     # 查询本月的交易记录
     income_records = Transaction.query.filter(
-        Transaction.user_id == user_id,
+        Transaction.username == username,
         Transaction.type == 'income',
         Transaction.date >= first_day,
         Transaction.date < next_month
     ).all()
 
     expense_records = Transaction.query.filter(
-        Transaction.user_id == user_id,
+        Transaction.username == username,
         Transaction.type == 'expense',
         Transaction.date >= first_day,
         Transaction.date < next_month
@@ -64,13 +64,13 @@ def get_summary():
 @app.route('/api/transactions', methods=['GET'])
 def get_transactions():
     """获取用户的最近交易记录，默认按时间倒序返回10条"""
-    user_id = request.args.get('user_id', type=int)
+    username = request.args.get('username', type=int)
     limit = request.args.get('limit', default=10, type=int)
 
-    if not user_id:
-        return jsonify({"success": False, "error": "Missing user_id"}), 400
+    if not username:
+        return jsonify({"success": False, "error": "Missing username"}), 400
 
-    transactions = Transaction.query.filter_by(user_id=user_id).order_by(Transaction.date.desc()).limit(limit).all()
+    transactions = Transaction.query.filter_by(username=username).order_by(Transaction.date.desc()).limit(limit).all()
     return jsonify({
         "success": True,
         "data": [{
@@ -88,7 +88,7 @@ def get_transactions():
 def create_transaction():
     """手动添加一条交易记录"""
     data = request.json
-    required_fields = ['amount', 'type', 'category', 'user_id']
+    required_fields = ['amount', 'type', 'category', 'username']
     for field in required_fields:
         if field not in data:
             return jsonify({"success": False, "error": f"Missing {field}"}), 400
@@ -99,14 +99,14 @@ def create_transaction():
         category=data['category'],
         description=data.get('description'),
         date=datetime.utcnow(),
-        user_id=data['user_id']
+        username=data['username']
     )
     db.session.add(new)
     db.session.commit()
 
     # 只有支出类交易才更新预算
     if new.type == 'expense':
-        update_budget_for_transaction(new.user_id, new.category, new.amount, new.date)
+        update_budget_for_transaction(new.username, new.category, new.amount, new.date)
 
     return jsonify({
         "success": True,
@@ -143,11 +143,11 @@ def update_transaction(id):
     # 如果是支出类型，并且分类或金额发生变化，则更新预算
     if old_type == 'expense':
         # 先减去旧值
-        update_budget_for_transaction(trans.user_id, old_category, -old_amount, old_date)
+        update_budget_for_transaction(trans.username, old_category, -old_amount, old_date)
 
     if trans.type == 'expense':
         # 再加上新值
-        update_budget_for_transaction(trans.user_id, trans.category, trans.amount, trans.date)
+        update_budget_for_transaction(trans.username, trans.category, trans.amount, trans.date)
 
     return jsonify({
         "success": True,
@@ -171,15 +171,15 @@ def delete_transaction(id):
 
     # 同步预算
     if trans.type == 'expense':
-        update_budget_for_transaction(trans.user_id, trans.category, -trans.amount, trans.date)
+        update_budget_for_transaction(trans.username, trans.category, -trans.amount, trans.date)
 
     return jsonify({"success": True, "data": "删除成功"})
 
 
-def update_budget_for_transaction(user_id, category, amount_change, transaction_date):
+def update_budget_for_transaction(username, category, amount_change, transaction_date):
     """
     当交易记录变更时，更新对应的预算
-    :param user_id: 用户ID
+    :param username: 用户ID
     :param category: 分类名称
     :param amount_change: 要增加/减少的金额
     :param transaction_date: 交易时间
@@ -189,7 +189,7 @@ def update_budget_for_transaction(user_id, category, amount_change, transaction_
 
     # 找到所有该用户、该分类、时间范围内有效的预算
     budgets = Budget.query.filter(
-        Budget.user_id == user_id,
+        Budget.username == username,
         Budget.category == category,
         Budget.start_date <= transaction_date,
         Budget.end_date >= transaction_date
@@ -205,11 +205,11 @@ def update_budget_for_transaction(user_id, category, amount_change, transaction_
 @app.route('/api/plans', methods=['GET'])
 def get_budgets():
     """获取用户的所有预算计划"""
-    user_id = request.args.get('user_id', type=int)
-    if not user_id:
-        return jsonify({"success": False, "error": "Missing user_id"}), 400
+    username = request.args.get('username', type=int)
+    if not username:
+        return jsonify({"success": False, "error": "Missing username"}), 400
 
-    budgets = Budget.query.filter_by(user_id=user_id).all()
+    budgets = Budget.query.filter_by(username=username).all()
     return jsonify({
         "success": True,
         "data": [{
@@ -226,7 +226,7 @@ def get_budgets():
 def create_budget():
     """创建一个新的预算计划"""
     data = request.json
-    required_fields = ['name', 'target_amount', 'category', 'user_id']
+    required_fields = ['name', 'target_amount', 'category', 'username']
     for field in required_fields:
         if field not in data:
             return jsonify({"success": False, "error": f"Missing {field}"}), 400
@@ -246,7 +246,7 @@ def create_budget():
         target_amount=data['target_amount'],
         current_amount=0,
         category=category_name,
-        user_id=data['user_id']
+        username=data['username']
     )
 
     db.session.add(budget)
@@ -359,11 +359,11 @@ def delete_category(id):
 @app.route('/api/reports', methods=['GET'])
 def get_reports():
     """根据时间范围获取支出分类统计数据"""
-    user_id = request.args.get('user_id', type=int)
+    username = request.args.get('username', type=int)
     range_type = request.args.get('range', 'month')  # month/quarter/year
 
-    if not user_id:
-        return jsonify({"success": False, "error": "Missing user_id"}), 400
+    if not username:
+        return jsonify({"success": False, "error": "Missing username"}), 400
 
     now = datetime.utcnow()
 
@@ -383,7 +383,7 @@ def get_reports():
 
     # 查询时间范围内所有支出类交易
     transactions = Transaction.query.filter(
-        Transaction.user_id == user_id,
+        Transaction.username == username,
         Transaction.type == 'expense',
         Transaction.date >= start_date
     ).all()
