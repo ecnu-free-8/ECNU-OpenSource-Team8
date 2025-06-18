@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Edit3, Tag, Plus, Trash2, Save, X, Loader2, AlertCircle } from 'lucide-react';
+import { Edit3, Tag, Plus, Trash2, Save, X, Loader2, AlertCircle, User } from 'lucide-react';
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '../hooks/useCategories';
 import { useCreateTransaction } from '../hooks/useTransactions';
+import UserProfile from '../components/UserProfile';
 
 const ManagePage = () => {
-  const [activeTab, setActiveTab] = useState('manual'); // 'manual' or 'categories'
+  const [activeTab, setActiveTab] = useState('manual'); // 'manual', 'categories', or 'profile'
 
   // 使用hooks获取分类数据
   const { data: categories, isLoading: isLoadingCategories, error: categoriesError } = useCategories();
@@ -28,8 +29,9 @@ const ManagePage = () => {
   const [showAddCategory, setShowAddCategory] = useState(false);
 
   const tabs = [
-    { id: 'manual', label: '手动记账', icon: Edit3 },
-    { id: 'categories', label: '分类管理', icon: Tag }
+    { id: 'manual', label: '记账', icon: Edit3 },
+    { id: 'categories', label: '分类', icon: Tag },
+    { id: 'profile', label: '用户', icon: User }
   ];
 
   // 手动记账处理
@@ -392,6 +394,11 @@ const ManagePage = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* 用户信息 */}
+      {activeTab === 'profile' && (
+        <UserProfile />
       )}
     </div>
   );

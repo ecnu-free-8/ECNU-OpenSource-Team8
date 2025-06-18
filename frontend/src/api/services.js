@@ -204,6 +204,78 @@ export const reportApi = {
   }
 };
 
+// 认证API
+export const authApi = {
+  // 用户登录
+  login: async (credentials) => {
+    if (USE_MOCK_DATA) {
+      // 模拟登录验证
+      const { username, password } = credentials;
+
+      // 简单的模拟验证 - 演示用户
+      const demoUsers = {
+        'demo': { password: '123456', email: 'demo@example.com', displayName: '演示用户' },
+        'admin': { password: 'admin', email: 'admin@example.com', displayName: '管理员' },
+        'test': { password: 'test', email: 'test@example.com', displayName: '测试用户' }
+      };
+
+      if (username && password) {
+        const user = demoUsers[username.toLowerCase()];
+        if (user && user.password === password) {
+          const userData = {
+            username: username,
+            email: user.email,
+            displayName: user.displayName,
+            loginTime: new Date().toISOString()
+          };
+          return mockApiCall(userData);
+        } else {
+          throw new Error('用户名或密码错误');
+        }
+      } else {
+        throw new Error('请输入用户名和密码');
+      }
+    }
+    const response = await api.post('/login', credentials);
+    return response.data;
+  },
+
+  // 用户注册
+  register: async (userData) => {
+    if (USE_MOCK_DATA) {
+      const { username, email, password } = userData;
+
+      // 简单的模拟注册
+      if (username && email && password) {
+        const newUser = {
+          username: username,
+          email: email,
+          registerTime: new Date().toISOString()
+        };
+        return mockApiCall(newUser);
+      } else {
+        throw new Error('请填写完整的注册信息');
+      }
+    }
+    const response = await api.post('/register', userData);
+    return response.data;
+  },
+
+  // 获取当前用户信息
+  getCurrentUser: async () => {
+    if (USE_MOCK_DATA) {
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        return mockApiCall(JSON.parse(storedUser));
+      } else {
+        throw new Error('用户未登录');
+      }
+    }
+    const response = await api.get('/user/current');
+    return response.data;
+  }
+};
+
 // AI助手API
 export const aiApi = {
   // 发送消息给AI助手
