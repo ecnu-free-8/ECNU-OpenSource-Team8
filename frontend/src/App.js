@@ -26,8 +26,8 @@ function App() {
   };
 
   return (
-    // 移动端应用容器 - 占满整个浏览器窗口
-    <div className="relative w-full h-full max-w-sm mx-auto bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+    // 移动端应用容器 - 在桌面端适当放宽，移动端全屏
+    <div className="relative w-full h-full max-w-md md:max-w-lg lg:max-w-xl mx-auto bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       
       {/* 页面内容区域 */}
       <main className="flex-grow overflow-y-auto">
