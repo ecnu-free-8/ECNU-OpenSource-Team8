@@ -164,7 +164,7 @@ const ReportsPage = () => {
                       {category.name}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {category.percentage ? category.percentage.toFixed(1) : getPercentage(category.amount)}%
+                      {category.percentage ? category.percentage : getPercentage(category.amount)}%
                     </p>
                   </div>
                 </div>
