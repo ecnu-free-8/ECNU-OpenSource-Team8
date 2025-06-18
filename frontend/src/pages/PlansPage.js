@@ -1,55 +1,14 @@
-import React, { useState } from 'react';
-import { Plus, Target } from 'lucide-react';
+import React from 'react';
+import { Plus, Target, Loader2, AlertCircle } from 'lucide-react';
+import { useBudgets } from '../hooks/useBudgets';
 
 const PlansPage = () => {
-  // Mock data for budget plans
-  const [budgets] = useState([
-    {
-      id: 1,
-      name: '餐饮预算',
-      category: '餐饮',
-      currentAmount: 580,
-      targetAmount: 800,
-      icon: '🍽',
-      type: 'monthly'
-    },
-    {
-      id: 2,
-      name: '交通预算',
-      category: '交通',
-      currentAmount: 320,
-      targetAmount: 500,
-      icon: '🚗',
-      type: 'monthly'
-    },
-    {
-      id: 3,
-      name: '娱乐预算',
-      category: '娱乐',
-      currentAmount: 450,
-      targetAmount: 400,
-      icon: '🎮',
-      type: 'monthly'
-    },
-    {
-      id: 4,
-      name: '购物预算',
-      category: '购物',
-      currentAmount: 234,
-      targetAmount: 600,
-      icon: '🛍',
-      type: 'monthly'
-    },
-    {
-      id: 5,
-      name: '旅行储蓄',
-      category: '储蓄',
-      currentAmount: 2500,
-      targetAmount: 10000,
-      icon: '✈️',
-      type: 'saving'
-    }
-  ]);
+  // 使用hooks获取预算数据
+  const {
+    data: budgets,
+    isLoading,
+    error
+  } = useBudgets();
 
   const formatAmount = (amount) => {
     return `¥${amount.toLocaleString()}`;
@@ -95,16 +54,27 @@ const PlansPage = () => {
       </div>
 
       {/* 预算卡片列表 */}
-      <div className="space-y-4">
-        {budgets.map((budget) => {
-          const percentage = getUsagePercentage(budget.currentAmount, budget.targetAmount);
-          const status = getBudgetStatus(budget.currentAmount, budget.targetAmount, budget.type);
-          
-          return (
-            <div
-              key={budget.id}
-              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4"
-            >
+      {isLoading ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-500 mr-2" />
+          <span className="text-gray-600 dark:text-gray-400">加载预算数据...</span>
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center">
+          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+          <span className="text-red-700 dark:text-red-300">获取预算数据失败</span>
+        </div>
+      ) : budgets && budgets.length > 0 ? (
+        <div className="space-y-4">
+          {budgets.map((budget) => {
+            const percentage = getUsagePercentage(budget.currentAmount, budget.targetAmount);
+            const status = getBudgetStatus(budget.currentAmount, budget.targetAmount, budget.type);
+
+            return (
+              <div
+                key={budget.id}
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4"
+              >
               {/* 预算标题和图标 */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -165,7 +135,12 @@ const PlansPage = () => {
             </div>
           );
         })}
-      </div>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <p className="text-gray-500 dark:text-gray-400">暂无预算计划</p>
+        </div>
+      )}
 
       {/* 添加新预算按钮 */}
       <button className="w-full bg-blue-50 dark:bg-blue-900/20 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-xl p-6 flex items-center justify-center space-x-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200">

@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { Edit3, Tag, Plus, Trash2, Save, X } from 'lucide-react';
+import { Edit3, Tag, Plus, Trash2, Save, X, Loader2, AlertCircle } from 'lucide-react';
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '../hooks/useCategories';
+import { useCreateTransaction } from '../hooks/useTransactions';
 
 const ManagePage = () => {
   const [activeTab, setActiveTab] = useState('manual'); // 'manual' or 'categories'
-  const [categories, setCategories] = useState([
-    { id: 1, name: '餐饮', icon: '🍽', color: '#ef4444' },
-    { id: 2, name: '交通', icon: '🚗', color: '#3b82f6' },
-    { id: 3, name: '购物', icon: '🛍', color: '#10b981' },
-    { id: 4, name: '娱乐', icon: '🎮', color: '#8b5cf6' },
-    { id: 5, name: '医疗', icon: '💊', color: '#ec4899' },
-    { id: 6, name: '其他', icon: '📦', color: '#6b7280' }
-  ]);
+
+  // 使用hooks获取分类数据
+  const { data: categories, isLoading: isLoadingCategories, error: categoriesError } = useCategories();
+  const createCategoryMutation = useCreateCategory();
+  const updateCategoryMutation = useUpdateCategory();
+  const deleteCategoryMutation = useDeleteCategory();
+  const createTransactionMutation = useCreateTransaction();
   
   // 手动记账表单状态
   const [manualForm, setManualForm] = useState({
@@ -32,57 +33,81 @@ const ManagePage = () => {
   ];
 
   // 手动记账处理
-  const handleManualSubmit = (e) => {
+  const handleManualSubmit = async (e) => {
     e.preventDefault();
     if (!manualForm.amount || !manualForm.category || !manualForm.description) {
       alert('请填写所有必填字段');
       return;
     }
-    
-    // 这里应该调用API保存数据
-    alert(`记账成功！\n类型: ${manualForm.type === 'expense' ? '支出' : '收入'}\n金额: ¥${manualForm.amount}\n分类: ${manualForm.category}\n描述: ${manualForm.description}\n日期: ${manualForm.date}`);
-    
-    // 重置表单
-    setManualForm({
-      amount: '',
-      category: '',
-      description: '',
-      date: new Date().toISOString().split('T')[0],
-      type: 'expense'
-    });
+
+    try {
+      // 调用API保存数据
+      await createTransactionMutation.mutateAsync({
+        amount: manualForm.type === 'expense' ? -parseFloat(manualForm.amount) : parseFloat(manualForm.amount),
+        category: manualForm.category,
+        description: manualForm.description,
+        date: manualForm.date,
+        type: manualForm.type
+      });
+
+      alert('记账成功！');
+
+      // 重置表单
+      setManualForm({
+        amount: '',
+        category: '',
+        description: '',
+        date: new Date().toISOString().split('T')[0],
+        type: 'expense'
+      });
+    } catch (error) {
+      alert('记账失败，请重试');
+    }
   };
 
   // 分类管理处理
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategory.name || !newCategory.icon) {
       alert('请填写分类名称和图标');
       return;
     }
-    
-    const category = {
-      id: Date.now(),
-      ...newCategory
-    };
-    
-    setCategories([...categories, category]);
-    setNewCategory({ name: '', icon: '', color: '#6b7280' });
-    setShowAddCategory(false);
+
+    try {
+      await createCategoryMutation.mutateAsync({
+        ...newCategory,
+        type: 'expense' // 默认为支出分类
+      });
+
+      setNewCategory({ name: '', icon: '', color: '#6b7280' });
+      setShowAddCategory(false);
+    } catch (error) {
+      alert('创建分类失败，请重试');
+    }
   };
 
   const handleEditCategory = (category) => {
     setEditingCategory({ ...category });
   };
 
-  const handleSaveCategory = () => {
-    setCategories(categories.map(cat => 
-      cat.id === editingCategory.id ? editingCategory : cat
-    ));
-    setEditingCategory(null);
+  const handleSaveCategory = async () => {
+    try {
+      await updateCategoryMutation.mutateAsync({
+        id: editingCategory.id,
+        data: editingCategory
+      });
+      setEditingCategory(null);
+    } catch (error) {
+      alert('更新分类失败，请重试');
+    }
   };
 
-  const handleDeleteCategory = (id) => {
+  const handleDeleteCategory = async (id) => {
     if (window.confirm('确定要删除这个分类吗？')) {
-      setCategories(categories.filter(cat => cat.id !== id));
+      try {
+        await deleteCategoryMutation.mutateAsync(id);
+      } catch (error) {
+        alert('删除分类失败，请重试');
+      }
     }
   };
 
@@ -167,18 +192,25 @@ const ManagePage = () => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 分类 *
               </label>
-              <select
-                value={manualForm.category}
-                onChange={(e) => setManualForm({...manualForm, category: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">请选择分类</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.name}>
-                    {category.icon} {category.name}
-                  </option>
-                ))}
-              </select>
+              {isLoadingCategories ? (
+                <div className="flex items-center justify-center py-2">
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <span>加载分类...</span>
+                </div>
+              ) : (
+                <select
+                  value={manualForm.category}
+                  onChange={(e) => setManualForm({...manualForm, category: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">请选择分类</option>
+                  {categories?.map((category) => (
+                    <option key={category.id} value={category.name}>
+                      {category.icon} {category.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* 描述 */}
@@ -211,9 +243,17 @@ const ManagePage = () => {
             {/* 提交按钮 */}
             <button
               type="submit"
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+              disabled={createTransactionMutation.isPending}
+              className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
             >
-              保存记录
+              {createTransactionMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  保存中...
+                </>
+              ) : (
+                '保存记录'
+              )}
             </button>
           </form>
         </div>
@@ -269,8 +309,19 @@ const ManagePage = () => {
           )}
 
           {/* 分类列表 */}
-          <div className="space-y-2">
-            {categories.map((category) => (
+          {isLoadingCategories ? (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-500 mr-2" />
+              <span className="text-gray-600 dark:text-gray-400">加载分类...</span>
+            </div>
+          ) : categoriesError ? (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+              <span className="text-red-700 dark:text-red-300">获取分类失败</span>
+            </div>
+          ) : categories && categories.length > 0 ? (
+            <div className="space-y-2">
+              {categories.map((category) => (
               <div
                 key={category.id}
                 className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4"
@@ -333,8 +384,13 @@ const ManagePage = () => {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+              <p className="text-gray-500 dark:text-gray-400">暂无分类</p>
+            </div>
+          )}
         </div>
       )}
     </div>
