@@ -1,48 +1,19 @@
 import React, { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { useExpenseReport } from '../hooks/useReports';
 
 const ReportsPage = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('monthly');
 
-  // Mock data for different time periods
-  const reportData = {
-    monthly: {
-      title: '本月支出分类',
-      categories: [
-        { name: '餐饮', amount: 580, icon: '🍽', color: '#ef4444' },
-        { name: '交通', amount: 320, icon: '🚗', color: '#3b82f6' },
-        { name: '购物', amount: 234, icon: '🛍', color: '#10b981' },
-        { name: '娱乐', amount: 100, icon: '🎮', color: '#8b5cf6' },
-        { name: '医疗', amount: 80, icon: '💊', color: '#ec4899' },
-        { name: '其他', amount: 45, icon: '📦', color: '#6b7280' }
-      ]
-    },
-    quarterly: {
-      title: '本季度支出分类',
-      categories: [
-        { name: '餐饮', amount: 1740, icon: '🍽', color: '#ef4444' },
-        { name: '交通', amount: 960, icon: '🚗', color: '#3b82f6' },
-        { name: '购物', amount: 702, icon: '🛍', color: '#10b981' },
-        { name: '娱乐', amount: 300, icon: '🎮', color: '#8b5cf6' },
-        { name: '医疗', amount: 240, icon: '💊', color: '#ec4899' },
-        { name: '其他', amount: 135, icon: '📦', color: '#6b7280' }
-      ]
-    },
-    yearly: {
-      title: '本年度支出分类',
-      categories: [
-        { name: '餐饮', amount: 6960, icon: '🍽', color: '#ef4444' },
-        { name: '交通', amount: 3840, icon: '🚗', color: '#3b82f6' },
-        { name: '购物', amount: 2808, icon: '🛍', color: '#10b981' },
-        { name: '娱乐', amount: 1200, icon: '🎮', color: '#8b5cf6' },
-        { name: '医疗', amount: 960, icon: '💊', color: '#ec4899' },
-        { name: '其他', amount: 540, icon: '📦', color: '#6b7280' }
-      ]
-    }
-  };
+  // 使用hooks获取报表数据
+  const {
+    data: currentData,
+    isLoading,
+    error
+  } = useExpenseReport(selectedPeriod);
 
-  const currentData = reportData[selectedPeriod];
-  const totalAmount = currentData.categories.reduce((sum, cat) => sum + cat.amount, 0);
+  const totalAmount = currentData?.totalAmount || 0;
 
   const formatAmount = (amount) => {
     return `¥${amount.toLocaleString()}`;
@@ -125,74 +96,88 @@ const ReportsPage = () => {
         ))}
       </div>
 
-      {/* 图表区域 - 饼图占位符 */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 text-center">
-          {currentData.title}
-        </h3>
-
-        {/* 专业饼图 */}
-        <div className="h-36 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={currentData.categories}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={renderCustomLabel}
-                outerRadius={50}
-                fill="#8884d8"
-                dataKey="amount"
-              >
-                {currentData.categories.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
+      {/* 图表区域 */}
+      {isLoading ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-500 mr-2" />
+          <span className="text-gray-600 dark:text-gray-400">加载报表数据...</span>
         </div>
-
-        {/* 总金额显示 */}
-        <div className="text-center mb-2">
-          <p className="text-lg font-bold text-gray-900 dark:text-white">
-            {formatAmount(totalAmount)}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">总支出</p>
+      ) : error ? (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center">
+          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+          <span className="text-red-700 dark:text-red-300">获取报表数据失败</span>
         </div>
-      </div>
+      ) : currentData ? (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 text-center">
+            {currentData.title}
+          </h3>
+
+          {/* 专业饼图 */}
+          <div className="h-36 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={currentData.categories}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={renderCustomLabel}
+                  outerRadius={50}
+                  fill="#8884d8"
+                  dataKey="amount"
+                >
+                  {currentData.categories?.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* 总金额显示 */}
+          <div className="text-center mb-2">
+            <p className="text-lg font-bold text-gray-900 dark:text-white">
+              {formatAmount(totalAmount)}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">总支出</p>
+          </div>
+        </div>
+      ) : null}
 
       {/* 分类明细列表 */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">分类明细</h3>
-        
-        <div className="space-y-2">
-          {currentData.categories.map((category, index) => (
-            <div
-              key={category.name}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between"
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">{category.icon}</span>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {category.name}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {getPercentage(category.amount)}%
+      {currentData && currentData.categories && currentData.categories.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">分类明细</h3>
+
+          <div className="space-y-2">
+            {currentData.categories.map((category, index) => (
+              <div
+                key={category.name}
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between"
+              >
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">{category.icon}</span>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {category.name}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {category.percentage ? category.percentage.toFixed(1) : getPercentage(category.amount)}%
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    {formatAmount(category.amount)}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-gray-900 dark:text-white">
-                  {formatAmount(category.amount)}
-                </p>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

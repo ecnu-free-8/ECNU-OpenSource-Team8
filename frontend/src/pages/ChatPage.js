@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, User } from 'lucide-react';
+import { useSendMessage } from '../hooks/useAI';
 
 const ChatPage = ({ onClose }) => {
   const [messages, setMessages] = useState([
@@ -11,9 +12,11 @@ const ChatPage = ({ onClose }) => {
     }
   ]);
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // 使用AI hooks
+  const sendMessageMutation = useSendMessage();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -28,92 +31,50 @@ const ChatPage = ({ onClose }) => {
     inputRef.current?.focus();
   }, []);
 
-  const simulateAIResponse = (userMessage) => {
-    setIsTyping(true);
-    
-    // 模拟AI处理时间
-    setTimeout(() => {
-      let aiResponse;
-      
-      // 简单的意图识别和响应生成
-      const lowerMessage = userMessage.toLowerCase();
-      
-      if (lowerMessage.includes('花了') || lowerMessage.includes('买') || lowerMessage.includes('支出')) {
-        // 记录开支的响应
-        const amountMatch = userMessage.match(/(\d+)元?/);
-        const amount = amountMatch ? amountMatch[1] : '25';
-        
-        let category = '其他';
-        if (lowerMessage.includes('午饭') || lowerMessage.includes('晚饭') || lowerMessage.includes('早饭') || lowerMessage.includes('餐') || lowerMessage.includes('吃')) {
-          category = '餐饮';
-        } else if (lowerMessage.includes('地铁') || lowerMessage.includes('公交') || lowerMessage.includes('打车') || lowerMessage.includes('交通')) {
-          category = '交通';
-        } else if (lowerMessage.includes('买') || lowerMessage.includes('购物')) {
-          category = '购物';
-        } else if (lowerMessage.includes('电影') || lowerMessage.includes('游戏') || lowerMessage.includes('娱乐')) {
-          category = '娱乐';
-        }
+  // 这个函数已经被新的API调用替代，保留作为备用
+  // const simulateAIResponse = (userMessage) => { ... }
 
-        aiResponse = {
-          type: 'transaction_record',
-          content: '好的，已记录这笔开支：',
-          transaction: {
-            amount: amount,
-            category: category,
-            description: userMessage.includes('午饭') ? '午饭' : userMessage.includes('咖啡') ? '咖啡' : '消费',
-            time: '刚刚'
-          }
-        };
-      } else if (lowerMessage.includes('多少钱') || lowerMessage.includes('花了多少') || lowerMessage.includes('查询')) {
-        // 查询相关的响应
-        aiResponse = {
-          type: 'query_response',
-          content: '根据您的记录，本月您已经花费了 ¥2,580，主要支出在餐饮(¥580)和交通(¥320)方面。'
-        };
-      } else if (lowerMessage.includes('预算') || lowerMessage.includes('计划')) {
-        // 预算设置的响应
-        aiResponse = {
-          type: 'budget_response',
-          content: '好的，我已经帮您设置了预算计划。您可以在"计划"页面查看和管理所有预算。'
-        };
-      } else {
-        // 默认响应
-        aiResponse = {
-          type: 'general',
-          content: '我可以帮您记录开支、查询消费情况或设置预算。请告诉我您想要做什么，比如："今天买咖啡花了18元" 或 "这个月花了多少钱？"'
-        };
-      }
-
-      const newMessage = {
-        id: Date.now(),
-        type: 'ai',
-        ...aiResponse,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, newMessage]);
-      setIsTyping(false);
-    }, 1000 + Math.random() * 1000); // 1-2秒的随机延迟
-  };
-
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputText.trim()) return;
+
+    const messageText = inputText;
 
     // 添加用户消息
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      content: inputText,
+      content: messageText,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
-    
-    // 模拟AI响应
-    simulateAIResponse(inputText);
-    
+
     // 清空输入框
     setInputText('');
+
+    // 发送AI请求
+    try {
+      const response = await sendMessageMutation.mutateAsync(messageText);
+
+      const newMessage = {
+        id: Date.now() + 1,
+        type: 'ai',
+        ...response.data,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+    } catch (error) {
+      // 错误处理 - 显示错误消息
+      const errorMessage = {
+        id: Date.now() + 1,
+        type: 'ai',
+        content: '抱歉，我现在无法处理您的请求，请稍后再试。',
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -206,7 +167,7 @@ const ChatPage = ({ onClose }) => {
         ))}
         
         {/* AI正在输入指示器 */}
-        {isTyping && (
+        {sendMessageMutation.isPending && (
           <div className="flex justify-start">
             <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl px-4 py-2">
               <div className="flex space-x-1">
@@ -235,7 +196,7 @@ const ChatPage = ({ onClose }) => {
           />
           <button
             onClick={handleSendMessage}
-            disabled={!inputText.trim()}
+            disabled={!inputText.trim() || sendMessageMutation.isPending}
             className="p-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 rounded-full transition-colors duration-200"
           >
             <Send className="w-5 h-5 text-white" />
