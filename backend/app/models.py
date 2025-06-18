@@ -8,7 +8,7 @@ class Transaction(db.Model):
     category = db.Column(db.String(20), nullable=False)
     description = db.Column(db.String(100))
     date = db.Column(db.DateTime, default=datetime.utcnow)
-    username = db.Column(db.Integer, nullable=False)
+    username = db.Column(db.String(50), nullable=False)
 
 class Budget(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -18,7 +18,7 @@ class Budget(db.Model):
     category = db.Column(db.String(20), nullable=False)
     start_date = db.Column(db.Date)
     end_date = db.Column(db.Date)
-    username = db.Column(db.Integer, nullable=False)
+    username = db.Column(db.String(50), nullable=False)
 
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -29,4 +29,4 @@ class Chat(db.Model):
     content = db.Column(db.Text, nullable=False)
     type = db.Column(db.Integer, nullable=False)  # 0: robot, 1: user
     date = db.Column(db.DateTime, default=datetime.utcnow)
-    username = db.Column(db.Integer, nullable=False)
+    username = db.Column(db.String(50), nullable=False)
