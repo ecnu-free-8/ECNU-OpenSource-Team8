@@ -42,7 +42,7 @@ def chat():
     )
              
 
-@bp.route('/api/summary', methods=['GET'])
+@bp.route('/summary', methods=['GET'])
 def get_summary():
     """获取用户当前月份的财务摘要：收入、支出、结余"""
     username = session.get('username', 'No user logged in')
@@ -90,7 +90,7 @@ def get_summary():
     })
 
 
-@bp.route('/api/transactions', methods=['GET'])
+@bp.route('/transactions', methods=['GET'])
 def get_transactions():
     """获取用户的最近交易记录，默认按时间倒序返回10条"""
     username = session.get('username', 'No user logged in')
@@ -113,7 +113,7 @@ def get_transactions():
     })
 
 
-@bp.route('/api/transactions', methods=['POST'])
+@bp.route('/transactions', methods=['POST'])
 def create_transaction():
     """手动添加一条交易记录"""
     data = request.json
@@ -150,7 +150,7 @@ def create_transaction():
     }), 201
 
 
-@bp.route('/api/transactions/<int:id>', methods=['PUT'])
+@bp.route('/transactions/<int:id>', methods=['PUT'])
 def update_transaction(id):
     """更新指定 ID 的交易记录"""
     data = request.json
@@ -191,7 +191,7 @@ def update_transaction(id):
     })
 
 
-@bp.route('/api/transactions/<int:id>', methods=['DELETE'])
+@bp.route('/transactions/<int:id>', methods=['DELETE'])
 def delete_transaction(id):
     """删除指定 ID 的交易记录"""
     trans = Transaction.query.get_or_404(id)
@@ -231,7 +231,7 @@ def update_budget_for_transaction(username, category, amount_change, transaction
 
 # ============ 预算计划接口 ============
 
-@bp.route('/api/plans', methods=['GET'])
+@bp.route('/plans', methods=['GET'])
 def get_budgets():
     """获取用户的所有预算计划"""
     username = session.get('username', 'No user logged in')
@@ -251,7 +251,7 @@ def get_budgets():
     })
 
 
-@bp.route('/api/plans', methods=['POST'])
+@bp.route('/plans', methods=['POST'])
 def create_budget():
     """创建一个新的预算计划"""
     data = request.json
@@ -295,7 +295,7 @@ def create_budget():
 
 # ============ 分类管理接口 ============
 
-@bp.route('/api/categories', methods=['GET'])
+@bp.route('/categories', methods=['GET'])
 def get_categories():
     """获取所有支出分类（预设 + 自定义）"""
     categories = Category.query.all()
@@ -308,7 +308,7 @@ def get_categories():
     })
 
 
-@bp.route('/api/categories', methods=['POST'])
+@bp.route('/categories', methods=['POST'])
 def add_category():
     """添加一个新的支出分类"""
     data = request.json
@@ -338,7 +338,7 @@ def add_category():
     }), 201
 
 
-@bp.route('/api/categories/<int:id>', methods=['PUT'])
+@bp.route('/categories/<int:id>', methods=['PUT'])
 def update_category(id):
     """更新指定 ID 的分类名称"""
     data = request.json
@@ -373,7 +373,7 @@ def update_category(id):
     })
 
 
-@bp.route('/api/categories/<int:id>', methods=['DELETE'])
+@bp.route('/categories/<int:id>', methods=['DELETE'])
 def delete_category(id):
     """删除指定 ID 的支出分类"""
     cat = Category.query.get_or_404(id)
@@ -385,7 +385,7 @@ def delete_category(id):
 # ============ 报表分析接口 ============
 
 
-@bp.route('/api/reports', methods=['GET'])
+@bp.route('/reports', methods=['GET'])
 def get_reports():
     """根据时间范围获取支出分类统计数据"""
     username = session.get('username', 'No user logged in')
