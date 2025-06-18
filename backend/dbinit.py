@@ -13,6 +13,6 @@ def init_db(db_path='db/dev.db'):
     conn.commit()
     conn.close()
     
-# init_db()
-init_db('db/test.db')  # Initialize the test database
-init_db('db/prod.db')  # Initialize the production database
+if __name__ == '__main__':
+    init_db()
+    print("Database initialized successfully.")
