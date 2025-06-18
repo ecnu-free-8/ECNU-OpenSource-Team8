@@ -56,10 +56,14 @@ const ChatPage = ({ onClose }) => {
     try {
       const response = await sendMessageMutation.mutateAsync(messageText);
 
+      const aiData = response.data;
       const newMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        ...response.data,
+        content: aiData.response,
+        intent: aiData.intent,
+        transaction_id: aiData.transaction_id,
+        budget_id: aiData.budget_id,
         timestamp: new Date()
       };
 
@@ -145,9 +149,26 @@ const ChatPage = ({ onClose }) => {
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
                 }`}
               >
-                <p className="text-sm">{message.content}</p>
-                
-                {/* 交易记录卡片 */}
+                <p className="text-sm whitespace-pre-line">{message.content}</p>
+
+                {/* 根据意图类型显示不同的状态指示 */}
+                {message.type === 'ai' && message.intent === 'RECORD_TRANSACTION' && message.transaction_id && (
+                  <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="text-xs text-green-700 dark:text-green-300">
+                      <p>✅ 交易已记录 (ID: {message.transaction_id})</p>
+                    </div>
+                  </div>
+                )}
+
+                {message.type === 'ai' && message.intent === 'SET_BUDGET' && message.budget_id && (
+                  <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="text-xs text-blue-700 dark:text-blue-300">
+                      <p>🎯 预算已设置 (ID: {message.budget_id})</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 兼容旧的交易记录卡片 */}
                 {message.transaction && (
                   <TransactionCard transaction={message.transaction} />
                 )}

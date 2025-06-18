@@ -1,24 +1,41 @@
 import { api } from './client';
-import { 
-  mockFinancialSummary, 
-  mockTransactions, 
-  mockCategories, 
-  mockBudgets, 
+import {
+  mockFinancialSummary,
+  mockTransactions,
+  mockCategories,
+  mockBudgets,
   mockReportData,
-  mockApiCall 
+  mockApiCall,
+  getUserMockData
 } from '../data/mockData';
 
 // 环境变量控制是否使用模拟数据
 const USE_MOCK_DATA = process.env.REACT_APP_USE_MOCK_DATA !== 'false';
+
+// 获取当前用户名
+const getCurrentUsername = () => {
+  const currentUser = localStorage.getItem('currentUser');
+  if (currentUser) {
+    try {
+      const user = JSON.parse(currentUser);
+      return user.username;
+    } catch (e) {
+      return 'demo';
+    }
+  }
+  return 'demo';
+};
 
 // 财务摘要API
 export const financialApi = {
   // 获取财务摘要
   getSummary: async () => {
     if (USE_MOCK_DATA) {
-      return mockApiCall(mockFinancialSummary);
+      const username = getCurrentUsername();
+      const userMockData = getUserMockData(username);
+      return mockApiCall(userMockData.financialSummary);
     }
-    const response = await api.get('/financial/summary');
+    const response = await api.get('/summary');
     return response.data;
   }
 };
@@ -28,8 +45,10 @@ export const transactionApi = {
   // 获取交易列表
   getTransactions: async (params = {}) => {
     if (USE_MOCK_DATA) {
-      let filteredTransactions = [...mockTransactions];
-      
+      const username = getCurrentUsername();
+      const userMockData = getUserMockData(username);
+      let filteredTransactions = [...userMockData.transactions];
+
       // 模拟筛选逻辑
       if (params.type) {
         filteredTransactions = filteredTransactions.filter(t => t.type === params.type);
@@ -38,17 +57,17 @@ export const transactionApi = {
         filteredTransactions = filteredTransactions.filter(t => t.category === params.category);
       }
       if (params.startDate && params.endDate) {
-        filteredTransactions = filteredTransactions.filter(t => 
+        filteredTransactions = filteredTransactions.filter(t =>
           t.date >= params.startDate && t.date <= params.endDate
         );
       }
-      
-      return mockApiCall({
-        transactions: filteredTransactions,
-        total: filteredTransactions.length
-      });
+      if (params.limit) {
+        filteredTransactions = filteredTransactions.slice(0, params.limit);
+      }
+
+      return mockApiCall(filteredTransactions);
     }
-    const response = await api.get('/transactions', params);
+    const response = await api.get('/transactions', { params });
     return response.data;
   },
 
@@ -134,9 +153,17 @@ export const budgetApi = {
   // 获取预算列表
   getBudgets: async () => {
     if (USE_MOCK_DATA) {
-      return mockApiCall(mockBudgets);
+      // 转换为新的API格式
+      const formattedBudgets = mockBudgets.map(budget => ({
+        id: budget.id,
+        name: budget.name,
+        target_amount: budget.targetAmount,
+        current_amount: budget.currentAmount,
+        category: budget.category
+      }));
+      return mockApiCall(formattedBudgets);
     }
-    const response = await api.get('/budgets');
+    const response = await api.get('/plans');
     return response.data;
   },
 
@@ -145,12 +172,14 @@ export const budgetApi = {
     if (USE_MOCK_DATA) {
       const newBudget = {
         id: Date.now(),
-        currentAmount: 0,
-        ...budgetData
+        name: budgetData.name,
+        target_amount: budgetData.target_amount,
+        current_amount: 0.0,
+        category: budgetData.category
       };
       return mockApiCall(newBudget);
     }
-    const response = await api.post('/budgets', budgetData);
+    const response = await api.post('/plans', budgetData);
     return response.data;
   },
 
@@ -159,16 +188,16 @@ export const budgetApi = {
     if (USE_MOCK_DATA) {
       return mockApiCall({ id, ...budgetData });
     }
-    const response = await api.put(`/budgets/${id}`, budgetData);
+    const response = await api.put(`/plans/${id}`, budgetData);
     return response.data;
   },
 
   // 删除预算
   deleteBudget: async (id) => {
     if (USE_MOCK_DATA) {
-      return mockApiCall({ id, deleted: true });
+      return mockApiCall("预算删除成功");
     }
-    const response = await api.delete(`/budgets/${id}`);
+    const response = await api.delete(`/plans/${id}`);
     return response.data;
   }
 };
@@ -176,30 +205,119 @@ export const budgetApi = {
 // 报表数据API
 export const reportApi = {
   // 获取支出报表
-  getExpenseReport: async (period = 'monthly') => {
+  getExpenseReport: async (range = 'month') => {
     if (USE_MOCK_DATA) {
-      return mockApiCall(mockReportData[period] || mockReportData.monthly);
+      const periodMap = {
+        'month': 'monthly',
+        'quarter': 'quarterly',
+        'year': 'yearly'
+      };
+      const mockPeriod = periodMap[range] || 'monthly';
+      const reportData = mockReportData[mockPeriod] || mockReportData.monthly;
+
+      // 转换为新的API格式
+      const formattedData = {
+        title: reportData.title,
+        total: reportData.totalAmount,
+        categories: reportData.categories.map(cat => ({
+          name: cat.name,
+          amount: cat.amount
+        }))
+      };
+      return mockApiCall(formattedData);
     }
-    const response = await api.get(`/reports/expense?period=${period}`);
+    const response = await api.get(`/reports?range=${range}`);
     return response.data;
   },
 
   // 获取收入报表
-  getIncomeReport: async (period = 'monthly') => {
+  getIncomeReport: async (range = 'month') => {
     if (USE_MOCK_DATA) {
       // 模拟收入报表数据
-      return mockApiCall({
-        title: `${period === 'monthly' ? '本月' : period === 'quarterly' ? '本季度' : '本年度'}收入分类`,
-        period,
+      const formattedData = {
+        title: `${range === 'month' ? '本月' : range === 'quarter' ? '本季度' : '本年度'}收入分类`,
+        total: 10000,
         categories: [
-          { name: '工资', amount: 8500, icon: '💼', color: '#059669', percentage: 85 },
-          { name: '投资', amount: 1000, icon: '📈', color: '#0891b2', percentage: 10 },
-          { name: '其他', amount: 500, icon: '💰', color: '#6b7280', percentage: 5 }
-        ],
-        totalAmount: 10000
-      });
+          { name: '工资', amount: 8500 },
+          { name: '投资', amount: 1000 },
+          { name: '其他', amount: 500 }
+        ]
+      };
+      return mockApiCall(formattedData);
     }
-    const response = await api.get(`/reports/income?period=${period}`);
+    const response = await api.get(`/reports?range=${range}&type=income`);
+    return response.data;
+  }
+};
+
+// 认证API
+export const authApi = {
+  // 用户登录
+  login: async (credentials) => {
+    if (USE_MOCK_DATA) {
+      // 模拟登录验证
+      const { username, password } = credentials;
+
+      // 简单的模拟验证 - 演示用户
+      const demoUsers = {
+        'demo': { password: '123456', email: 'demo@example.com', displayName: '演示用户' },
+        'admin': { password: 'admin', email: 'admin@example.com', displayName: '管理员' },
+        'test': { password: 'test', email: 'test@example.com', displayName: '测试用户' }
+      };
+
+      if (username && password) {
+        const user = demoUsers[username.toLowerCase()];
+        if (user && user.password === password) {
+          const userData = {
+            username: username,
+            email: user.email,
+            displayName: user.displayName,
+            loginTime: new Date().toISOString()
+          };
+          return mockApiCall(userData);
+        } else {
+          throw new Error('用户名或密码错误');
+        }
+      } else {
+        throw new Error('请输入用户名和密码');
+      }
+    }
+    const response = await api.post('/login', credentials);
+    return response.data;
+  },
+
+  // 用户注册
+  register: async (userData) => {
+    if (USE_MOCK_DATA) {
+      const { username, email, password } = userData;
+
+      // 简单的模拟注册
+      if (username && email && password) {
+        const newUser = {
+          username: username,
+          email: email,
+          registerTime: new Date().toISOString()
+        };
+        return mockApiCall(newUser);
+      } else {
+        throw new Error('请填写完整的注册信息');
+      }
+    }
+    const response = await api.post('/register', userData);
+    return response.data;
+  },
+
+  // 获取当前用户信息
+  getCurrentUser: async () => {
+    if (USE_MOCK_DATA) {
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        return mockApiCall(JSON.parse(storedUser));
+      } else {
+        throw new Error('用户未登录');
+      }
+    }
+    const response = await api.get('/user/current');
     return response.data;
   }
 };
@@ -212,46 +330,42 @@ export const aiApi = {
       // 模拟AI响应逻辑
       const lowerMessage = message.toLowerCase();
       let aiResponse;
-      
+
       if (lowerMessage.includes('花了') || lowerMessage.includes('买') || lowerMessage.includes('支出')) {
         const amountMatch = message.match(/(\d+)元?/);
-        const amount = amountMatch ? amountMatch[1] : '25';
-        
+        const amount = amountMatch ? parseFloat(amountMatch[1]) : 25.0;
+
         let category = '其他';
         if (lowerMessage.includes('午饭') || lowerMessage.includes('晚饭') || lowerMessage.includes('早饭')) category = '餐饮';
         else if (lowerMessage.includes('地铁') || lowerMessage.includes('公交') || lowerMessage.includes('打车')) category = '交通';
         else if (lowerMessage.includes('咖啡') || lowerMessage.includes('奶茶')) category = '餐饮';
-        
+
         aiResponse = {
-          type: 'transaction_record',
-          content: '好的，已记录这笔开支：',
-          transaction: {
-            amount: amount,
-            category: category,
-            description: lowerMessage.includes('午饭') ? '午饭' : lowerMessage.includes('咖啡') ? '咖啡' : '消费',
-            time: '刚刚'
-          }
+          intent: 'RECORD_TRANSACTION',
+          response: `好的，我已经记录了这笔开支：\n💰 金额：${amount}元\n🍽 分类：${category}\n📅 时间：今天`,
+          transaction_id: Date.now()
         };
       } else if (lowerMessage.includes('多少钱') || lowerMessage.includes('花了多少') || lowerMessage.includes('查询')) {
         aiResponse = {
-          type: 'query_response',
-          content: '根据您的记录，本月您已经花费了 ¥2,580，主要支出在餐饮(¥580)和交通(¥320)方面。'
+          intent: 'QUERY_DATA',
+          response: '本月您总共花费了2580.00元，主要支出为餐饮580元，交通320元。'
         };
       } else if (lowerMessage.includes('预算') || lowerMessage.includes('计划')) {
         aiResponse = {
-          type: 'budget_response',
-          content: '好的，我已经帮您设置了预算计划。您可以在"计划"页面查看和管理所有预算。'
+          intent: 'SET_BUDGET',
+          response: '已为您设置餐饮预算800元/月。',
+          budget_id: Date.now()
         };
       } else {
         aiResponse = {
-          type: 'general',
-          content: '我可以帮您记录开支、查询消费情况或设置预算。请告诉我您想要做什么，比如："今天买咖啡花了18元" 或 "这个月花了多少钱？"'
+          intent: 'GENERAL',
+          response: '我可以帮您记录开支、查询消费情况或设置预算。请告诉我您想要做什么，比如："今天买咖啡花了18元" 或 "这个月花了多少钱？"'
         };
       }
-      
+
       return mockApiCall(aiResponse, 1000 + Math.random() * 1000);
     }
-    const response = await api.post('/ai/chat', { message });
+    const response = await api.post('/chat', { message });
     return response.data;
   }
 };

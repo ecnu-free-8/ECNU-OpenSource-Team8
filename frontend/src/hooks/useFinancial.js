@@ -17,7 +17,15 @@ export const useFinancialSummary = () => {
     cacheTime: 10 * 60 * 1000, // 10分钟缓存时间
     refetchOnWindowFocus: false,
     retry: 2,
-    select: (response) => response.data, // 只返回data部分
+    select: (response) => {
+      // 转换新API格式为组件期望的格式
+      const data = response.data;
+      return {
+        monthlyExpense: data.expense,
+        monthlyIncome: data.income,
+        monthlyBalance: data.balance
+      };
+    },
   });
 };
 
