@@ -107,23 +107,21 @@ def add_api():
     
 @bp.route('/chat', methods=['POST'])
 def ai_chat():
-    """AI 助手入口：处理自然语言输入，记录开支或查询数据。"""
+    """AI 助手入口：将请求发送至大模型并转发其结构化 JSON 结果。"""
     data = request.get_json() or {}
 
     username = data.get('username')
     message = data.get('message', '').strip()
 
-    # 参数校验
     if not username:
         return jsonify({"success": False, "error": "用户不存在"}), 404
-
     if not message:
         return jsonify({"success": False, "error": "参数错误"}), 400
 
     try:
         parsed = _parse_user_message(message)
 
-        # 1. 记录交易
+        # -------- 记录开支 --------
         if parsed["intent"] == "RECORD_TRANSACTION":
             trans = Transaction(
                 amount=parsed["amount"],
@@ -155,7 +153,7 @@ def ai_chat():
                 }
             })
 
-        # 2. 查询数据
+        # -------- 查询数据 --------
         if parsed["intent"] == "QUERY_DATA":
             response_text = _summarize_month_expense(username)
             return jsonify({
@@ -167,10 +165,9 @@ def ai_chat():
             })
 
         # 未知意图
-        return jsonify({"success": False, "error": "无法理解用户意图"}), 400
+        return jsonify({"success": False, "error": "资源不存在"}), 404
 
     except Exception as e:
-        # 回滚以防止部分事务提交
         db.session.rollback()
         print("[AI_CHAT_ERROR]", e)
         return jsonify({"success": False, "error": "服务器错误"}), 500
