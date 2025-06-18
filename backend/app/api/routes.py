@@ -4,9 +4,86 @@ from app.core.functions import (
     add
 )
 from flask import session, redirect, url_for, render_template
-from app.core.llm import call_llm, chat_llm
-
+from app import db
 from app.models import *
+
+# 标准库
+import re
+from datetime import datetime
+
+# ============ AI 助手辅助函数 ============
+
+
+def _parse_user_message(message: str):
+    """根据简单规则解析用户消息，判断意图并抽取金额/分类。
+
+    返回示例：
+    {
+        "intent": "RECORD_TRANSACTION" | "QUERY_DATA",
+        "amount": 25.0,            # intent 为 RECORD_TRANSACTION 时存在
+        "category": "餐饮",        # intent 为 RECORD_TRANSACTION 时存在
+    }
+    """
+    message = (message or "").strip()
+    # 1. 检测金额（xx元/￥xx）
+    amt_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:元|块|￥)", message)
+
+    # 2. 根据是否存在金额简单判断意图
+    if amt_match:
+        amount = float(amt_match.group(1))
+        # 分类简单关键字映射
+        if any(k in message for k in ["饭", "餐", "午餐", "早餐", "晚餐", "午饭", "晚饭"]):
+            category = "餐饮"
+        elif any(k in message for k in ["地铁", "公交", "打车", "出租", "交通", "滴滴"]):
+            category = "交通"
+        else:
+            category = "其他"
+
+        return {
+            "intent": "RECORD_TRANSACTION",
+            "amount": amount,
+            "category": category,
+            "date_desc": "今天",
+        }
+
+    # 如未检测到金额，则默认认为是查询
+    return {
+        "intent": "QUERY_DATA"
+    }
+
+
+def _summarize_month_expense(username: str):
+    """统计指定用户当月支出总额及各分类明细，返回中文描述字符串"""
+    now = datetime.utcnow()
+    first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    transactions = Transaction.query.filter(
+        Transaction.username == username,
+        Transaction.type == 'expense',
+        Transaction.date >= first_day
+    ).all()
+
+    total = sum(t.amount for t in transactions)
+
+    # 分类汇总
+    breakdown = {}
+    for t in transactions:
+        breakdown[t.category] = breakdown.get(t.category, 0) + t.amount
+
+    # 取金额前几的分类
+    sorted_items = sorted(breakdown.items(), key=lambda x: x[1], reverse=True)
+    top_parts = [f"{cat}{amt:.0f}元" for cat, amt in sorted_items[:3]]
+    breakdown_str = "，".join(top_parts)
+
+    if total == 0:
+        return "本月暂无支出记录。"
+
+    response = f"本月您总共花费了{total:.2f}元"
+    if breakdown_str:
+        response += f"，主要支出为{breakdown_str}。"
+    else:
+        response += "。"
+    return response
 
 
 @bp.route('/test', methods=['GET'])
@@ -29,18 +106,75 @@ def add_api():
     
     
 @bp.route('/chat', methods=['POST'])
-def chat():
-    username = session.get('username', 'No user logged in')
-    if username == 'No user logged in':
-        return jsonify({
-            "success": False,
-            "error": "用户不存在"
-        }), 401
-    return chat_llm(
-        username,
-        request.json.get('prompt', '')
-    )
-             
+def ai_chat():
+    """AI 助手入口：处理自然语言输入，记录开支或查询数据。"""
+    data = request.get_json() or {}
+
+    username = data.get('username')
+    message = data.get('message', '').strip()
+
+    # 参数校验
+    if not username:
+        return jsonify({"success": False, "error": "用户不存在"}), 404
+
+    if not message:
+        return jsonify({"success": False, "error": "参数错误"}), 400
+
+    try:
+        parsed = _parse_user_message(message)
+
+        # 1. 记录交易
+        if parsed["intent"] == "RECORD_TRANSACTION":
+            trans = Transaction(
+                amount=parsed["amount"],
+                type='expense',
+                category=parsed["category"],
+                description=message,
+                date=datetime.utcnow(),
+                username=username
+            )
+            db.session.add(trans)
+            db.session.commit()
+
+            # 同步预算数据
+            update_budget_for_transaction(trans.username, trans.category, trans.amount, trans.date)
+
+            response_text = (
+                f"好的，我已经记录了这笔开支：\n"
+                f"💰 金额：{parsed['amount']}元\n"
+                f"🍽 分类：{parsed['category']}\n"
+                f"📅 时间：{parsed.get('date_desc', '今天')}"
+            )
+
+            return jsonify({
+                "success": True,
+                "data": {
+                    "intent": "RECORD_TRANSACTION",
+                    "response": response_text,
+                    "transaction_id": trans.id
+                }
+            })
+
+        # 2. 查询数据
+        if parsed["intent"] == "QUERY_DATA":
+            response_text = _summarize_month_expense(username)
+            return jsonify({
+                "success": True,
+                "data": {
+                    "intent": "QUERY_DATA",
+                    "response": response_text
+                }
+            })
+
+        # 未知意图
+        return jsonify({"success": False, "error": "无法理解用户意图"}), 400
+
+    except Exception as e:
+        # 回滚以防止部分事务提交
+        db.session.rollback()
+        print("[AI_CHAT_ERROR]", e)
+        return jsonify({"success": False, "error": "服务器错误"}), 500
+
 
 @bp.route('/summary', methods=['GET'])
 def get_summary():
