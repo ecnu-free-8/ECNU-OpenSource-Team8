@@ -185,16 +185,65 @@ export const mockReportData = {
   }
 };
 
-// 模拟API响应格式
-export const createMockResponse = (data, success = true, message = '') => ({
-  success,
-  data,
-  message,
-  timestamp: new Date().toISOString()
-});
+// 模拟API响应格式 - 符合新的API规范
+export const createMockResponse = (data, success = true, error = null) => {
+  if (success) {
+    return {
+      success: true,
+      data
+    };
+  } else {
+    return {
+      success: false,
+      error: error || '操作失败'
+    };
+  }
+};
 
 // 模拟API调用
 export const mockApiCall = async (data, delayMs = 500) => {
   await delay(delayMs);
   return createMockResponse(data);
+};
+
+// 用户数据隔离 - 模拟不同用户的数据
+export const getUserMockData = (username) => {
+  // 为不同用户返回不同的模拟数据
+  const userDataVariations = {
+    'demo': {
+      expenseMultiplier: 1.0,
+      incomeMultiplier: 1.0,
+      categoryPreference: ['餐饮', '交通', '购物']
+    },
+    'admin': {
+      expenseMultiplier: 1.5,
+      incomeMultiplier: 1.2,
+      categoryPreference: ['交通', '娱乐', '医疗']
+    },
+    'test': {
+      expenseMultiplier: 0.8,
+      incomeMultiplier: 0.9,
+      categoryPreference: ['购物', '餐饮', '其他']
+    }
+  };
+
+  const variation = userDataVariations[username] || userDataVariations['demo'];
+
+  return {
+    financialSummary: {
+      expense: Math.round(mockFinancialSummary.monthlyExpense * variation.expenseMultiplier),
+      income: Math.round(mockFinancialSummary.monthlyIncome * variation.incomeMultiplier),
+      balance: Math.round((mockFinancialSummary.monthlyIncome * variation.incomeMultiplier) -
+                         (mockFinancialSummary.monthlyExpense * variation.expenseMultiplier))
+    },
+    transactions: mockTransactions.map(t => ({
+      ...t,
+      id: t.id + (username === 'admin' ? 1000 : username === 'test' ? 2000 : 0)
+    })),
+    budgets: mockBudgets.map(b => ({
+      ...b,
+      id: b.id + (username === 'admin' ? 100 : username === 'test' ? 200 : 0),
+      currentAmount: Math.round(b.currentAmount * variation.expenseMultiplier)
+    }))
+  };
 };

@@ -12,19 +12,42 @@ const apiClient = axios.create({
   },
 });
 
+// 获取当前用户名
+const getCurrentUsername = () => {
+  const currentUser = localStorage.getItem('currentUser');
+  if (currentUser) {
+    try {
+      const user = JSON.parse(currentUser);
+      return user.username;
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+};
+
 // 请求拦截器
 apiClient.interceptors.request.use(
   (config) => {
-    // 添加认证token（如果有的话）
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // 添加用户名到请求中
+    const username = getCurrentUsername();
+    if (username) {
+      if (config.method === 'get' || config.method === 'delete') {
+        // GET和DELETE请求：添加到查询参数
+        config.params = { ...config.params, username };
+      } else {
+        // POST和PUT请求：添加到请求体
+        if (config.data && typeof config.data === 'object') {
+          config.data = { ...config.data, username };
+        }
+      }
     }
-    
+
     // 添加请求时间戳
     config.metadata = { startTime: new Date() };
-    
-    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+
+    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`,
+      username ? `(user: ${username})` : '(no user)');
     return config;
   },
   (error) => {

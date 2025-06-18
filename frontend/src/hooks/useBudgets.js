@@ -19,7 +19,18 @@ export const useBudgets = () => {
     cacheTime: 15 * 60 * 1000, // 15分钟缓存时间
     refetchOnWindowFocus: false,
     retry: 2,
-    select: (response) => response.data,
+    select: (response) => {
+      // 转换新API格式为组件期望的格式
+      return response.data.map(budget => ({
+        id: budget.id,
+        name: budget.name,
+        targetAmount: budget.target_amount,
+        currentAmount: budget.current_amount,
+        category: budget.category,
+        icon: '💰', // 默认图标
+        type: 'monthly' // 默认类型
+      }));
+    },
   });
 };
 
