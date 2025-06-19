@@ -46,7 +46,7 @@ def register():
 def login():
     username = request.form.get('username')
     password = request.form.get('password')
-    print(f"Login attempt with username: {username}, password: {password}")
+    print(f"Login attempt with username: {username}, password: ***")
     # sqlite 数据库连接
     conn = sqlite3.connect(app.config['DATABASE_URI'])
     cursor = conn.cursor()
