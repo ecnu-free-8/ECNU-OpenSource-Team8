@@ -90,8 +90,9 @@ def call_llm(prompt, username, functions=None):
         model="ecnu-reasoner",
         messages=messages,
     )
-    print("—————————————————LLM Response————————————————————————")
-    print(response.choices[0].message.content)  # Debugging output
+    import logging
+    logging.debug("—————————————————LLM Response————————————————————————")
+    logging.debug(response.choices[0].message.content)  # Debugging output
     json_response = json.loads(response.choices[0].message.content)
     if json_response.get("status", "false") == "false":
         return {'status': False}
