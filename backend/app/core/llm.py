@@ -55,7 +55,7 @@ You should only respond in JSON format as described below
 ### RESPONSE FORMAT ###
     {"thought": "为什么选择这个工具的思考","status": "true", "tool_names": "工具名","args_list": {“工具名1”:{"参数名1": "参数值1","参数名2": "参数值2"}}}
   
-    {"thought": "用户没有提供具体问题，因此需要请求用户提供更多信息以便选择适当的工具。","tool_names": "", "status": "false", "tool_names": "","args_list": {}}
+    {"thought": "用户没有提供具体问题，因此需要请求用户提供更多信息以便选择适当的工具。","status": "false", "tool_names": "","args_list": {}}
 
 Make sure that the response content you return is all in JSON format and does not contain any extra content.
 """
