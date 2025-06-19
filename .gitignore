@@ -1,0 +1,10 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyd
+*.so
+
+
+# Editor directories and files
+.idea/  # PyCharm
+.vscode/ # VS Code

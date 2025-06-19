@@ -1,31 +1,37 @@
 from flask import request, jsonify
 from . import bp
 from app.core.functions import (
-    add
+    add, get_summary, get_transactions, create_transaction,
+    update_transaction, delete_transaction, get_budgets, 
+    create_budget, get_categories, add_category, update_category,
+    delete_category, 
 )
 from flask import session, redirect, url_for, render_template
 from app.core.llm import call_llm, chat_llm
 
 from app.models import *
 
-
+# ============ 测试接口 ============
 @bp.route('/test', methods=['GET'])
 def test():
     username = session.get('username', 'No user logged in')
+    if username == 'No user logged in':
+        return jsonify({"success": False, "error": "No user logged in"}), 401
     return jsonify({
-        "success": username != 'No user logged in',
-        "data": {"username": username},
-    }), 200
+        "success": True,
+        "message": f"Hello, {username}! This is a test endpoint."
+    })
+    
 @bp.route('/add', methods=['POST'])
 def add_api():
     username = session.get('username', 'No user logged in')
     data = request.json
     print(data)
     return jsonify({
-        "success": username != 'No user logged in',
-        "data": {"result": add(**data) },
-    })
-
+        "success": True,
+        "data": {"username": username, "result": add(**data) },
+    }), 200
+# ============ 聊天接口 ============
     
     
 @bp.route('/chat', methods=['POST'])
@@ -36,62 +42,29 @@ def chat():
             "success": False,
             "error": "用户不存在"
         }), 401
-    return chat_llm(
-        username,
-        request.json.get('prompt', '')
-    )
-             
+    result = chat_llm(username, request.json.get('prompt', ''))
+    if result['success']:
+        return jsonify(result), 200
+    else:
+        return jsonify({
+            "success": False,
+            "error": "LLM调用失败"
+        }), 500
 
 @bp.route('/summary', methods=['GET'])
-def get_summary():
+def get_summary_api():
     """获取用户当前月份的财务摘要：收入、支出、结余"""
     username = session.get('username', 'No user logged in')
     if username == 'No user logged in':
         return jsonify({"success": False, "error": "Missing username"}), 400
-
-    # 获取当前时间
-    now = datetime.utcnow()
-
-    # 获取本月第一天（0点0分0秒）
-    first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-    # 获取下个月第一天（作为查询结束时间）
-    if now.month == 12:
-        next_month = now.replace(year=now.year + 1, month=1, day=1)
-    else:
-        next_month = now.replace(month=now.month + 1, day=1)
-
-    # 查询本月的交易记录
-    income_records = Transaction.query.filter(
-        Transaction.username == username,
-        Transaction.type == 'income',
-        Transaction.date >= first_day,
-        Transaction.date < next_month
-    ).all()
-
-    expense_records = Transaction.query.filter(
-        Transaction.username == username,
-        Transaction.type == 'expense',
-        Transaction.date >= first_day,
-        Transaction.date < next_month
-    ).all()
-
-    income = sum(t.amount for t in income_records)
-    expense = sum(t.amount for t in expense_records)
-    balance = income - expense
-
-    return jsonify({
-        "success": True,
-        "data": {
-            "expense": round(expense, 2),
-            "income": round(income, 2),
-            "balance": round(balance, 2)
-        }
-    })
-
+    result = get_summary(username)
+    if result['success']:
+        return jsonify(result), 200
+    return jsonify(result), 400
+    
 
 @bp.route('/transactions', methods=['GET'])
-def get_transactions():
+def get_transactions_api():
     """获取用户的最近交易记录，默认按时间倒序返回10条"""
     username = session.get('username', 'No user logged in')
     limit = request.args.get('limit', default=10, type=int)
@@ -99,247 +72,110 @@ def get_transactions():
     if username == 'No user logged in':
         return jsonify({"success": False, "error": "Missing username"}), 400
 
-    transactions = Transaction.query.filter_by(username=username).order_by(Transaction.date.desc()).limit(limit).all()
-    return jsonify({
-        "success": True,
-        "data": [{
-            "id": t.id,
-            "description": t.description,
-            "amount": t.amount,
-            "category": t.category,
-            "date": t.date.isoformat(),
-            "type": t.type
-        } for t in transactions]
-    })
+    result = get_transactions(username, limit)
+    if result['success']:
+        return jsonify(result), 200
+    return jsonify(result), 400
 
 
 @bp.route('/transactions', methods=['POST'])
-def create_transaction():
+def create_transaction_api():
     """手动添加一条交易记录"""
+    username = session.get('username', 'No user logged in')
+    if username == 'No user logged in':
+        return jsonify({"success": False, "error": "Missing username"}), 400
+
     data = request.json
-    required_fields = ['amount', 'type', 'category', 'username']
+    required_fields = ['amount', 'type', 'category']
     for field in required_fields:
         if field not in data:
             return jsonify({"success": False, "error": f"Missing {field}"}), 400
 
-    new = Transaction(
-        amount=data['amount'],
-        type=data['type'],
-        category=data['category'],
-        description=data.get('description'),
-        date=datetime.utcnow(),
-        username=data['username']
+    result = create_transaction(
+        username=username,
+        data=data,
     )
-    db.session.add(new)
-    db.session.commit()
-
-    # 只有支出类交易才更新预算
-    if new.type == 'expense':
-        update_budget_for_transaction(new.username, new.category, new.amount, new.date)
-
-    return jsonify({
-        "success": True,
-        "data": {
-            "id": new.id,
-            "amount": new.amount,
-            "type": new.type,
-            "category": new.category,
-            "description": new.description,
-            "date": new.date.isoformat()
-        }
-    }), 201
+    if result['success']:
+        return jsonify(result), 201
+    return jsonify(result), 400
+    
 
 
-@bp.route('/transactions/<int:id>', methods=['PUT'])
-def update_transaction(id):
+@bp.route('/transactions/<int:id>', methods=['PUT']) # 存在安全问题，实际应用中应使用安全的验证方式
+def update_transaction_api(id):
     """更新指定 ID 的交易记录"""
     data = request.json
-    trans = Transaction.query.get_or_404(id)
+    result = update_transaction(id, data)
+    if result['success']:
+        return jsonify(result), 200
+    return jsonify(result), 400    
 
-    old_category = trans.category
-    old_amount = trans.amount
-    old_date = trans.date
-    old_type = trans.type
-
-    # 更新字段
-    trans.amount = data.get('amount', trans.amount)
-    trans.type = data.get('type', trans.type)
-    trans.category = data.get('category', trans.category)
-    trans.description = data.get('description', trans.description)
-
-    db.session.commit()
-
-    # 如果是支出类型，并且分类或金额发生变化，则更新预算
-    if old_type == 'expense':
-        # 先减去旧值
-        update_budget_for_transaction(trans.username, old_category, -old_amount, old_date)
-
-    if trans.type == 'expense':
-        # 再加上新值
-        update_budget_for_transaction(trans.username, trans.category, trans.amount, trans.date)
-
-    return jsonify({
-        "success": True,
-        "data": {
-            "id": trans.id,
-            "amount": trans.amount,
-            "type": trans.type,
-            "category": trans.category,
-            "description": trans.description,
-            "date": trans.date.isoformat()
-        }
-    })
-
-
-@bp.route('/transactions/<int:id>', methods=['DELETE'])
-def delete_transaction(id):
+@bp.route('/transactions/<int:id>', methods=['DELETE']) # 存在安全问题，实际应用中应使用安全的验证方式
+def delete_transaction_api(id):
     """删除指定 ID 的交易记录"""
-    trans = Transaction.query.get_or_404(id)
-    db.session.delete(trans)
-    db.session.commit()
-
-    # 同步预算
-    if trans.type == 'expense':
-        update_budget_for_transaction(trans.username, trans.category, -trans.amount, trans.date)
-
-    return jsonify({"success": True, "data": "删除成功"})
-
-
-def update_budget_for_transaction(username, category, amount_change, transaction_date):
-    """
-    当交易记录变更时，更新对应的预算
-    :param username: 用户ID
-    :param category: 分类名称
-    :param amount_change: 要增加/减少的金额
-    :param transaction_date: 交易时间
-    """
-    if not category or amount_change == 0:
-        return
-
-    # 找到所有该用户、该分类、时间范围内有效的预算
-    budgets = Budget.query.filter(
-        Budget.username == username,
-        Budget.category == category,
-        Budget.start_date <= transaction_date,
-        Budget.end_date >= transaction_date
-    ).all()
-
-    for budget in budgets:
-        budget.current_amount = max(budget.current_amount + amount_change, 0)  # 防止负值
-        db.session.add(budget)
-
+    result = delete_transaction(id)
+    if result['success']:
+        return jsonify(result), 200
+    return jsonify(result), 400
 
 # ============ 预算计划接口 ============
 
 @bp.route('/plans', methods=['GET'])
-def get_budgets():
+def get_budgets_api():
     """获取用户的所有预算计划"""
     username = session.get('username', 'No user logged in')
     if username == 'No user logged in':
         return jsonify({"success": False, "error": "Missing username"}), 400
 
-    budgets = Budget.query.filter_by(username=username).all()
-    return jsonify({
-        "success": True,
-        "data": [{
-            "id": b.id,
-            "name": b.name,
-            "target_amount": b.target_amount,
-            "current_amount": b.current_amount,
-            "category": b.category
-        } for b in budgets]
-    })
+    result = get_budgets(username)
+    if result['success']:
+        return jsonify(result), 200
+    return jsonify(result), 400
 
 
 @bp.route('/plans', methods=['POST'])
-def create_budget():
+def create_budget_api():
     """创建一个新的预算计划"""
+    username = session.get('username', 'No user logged in')
+    if username == 'No user logged in':
+        return jsonify({"success": False, "error": "Missing username"}), 400
     data = request.json
     required_fields = ['name', 'target_amount', 'category', 'username']
     for field in required_fields:
         if field not in data:
             return jsonify({"success": False, "error": f"Missing {field}"}), 400
-
-    category_name = data['category']
-
-    # 检查 category 是否是预设分类之一
-    existing_category = Category.query.filter_by(name=category_name).first()
-    if not existing_category:
-        return jsonify({
-            "success": False,
-            "error": f"Invalid category: {category_name}"
-        }), 400
-
-    budget = Budget(
-        name=data['name'],
-        target_amount=data['target_amount'],
-        current_amount=0,
-        category=category_name,
-        username=data['username']
-    )
-
-    db.session.add(budget)
-    db.session.commit()
-
-    return jsonify({
-        "success": True,
-        "data": {
-            "id": budget.id,
-            "name": budget.name,
-            "target_amount": budget.target_amount,
-            "current_amount": budget.current_amount,
-            "category": budget.category
-        }
-    }), 201
+    result = create_budget(username=username, data=data)
+    if result['success']:
+        return jsonify(result), 201
+    return jsonify(result), 400
 
 
 # ============ 分类管理接口 ============
 
 @bp.route('/categories', methods=['GET'])
-def get_categories():
+def get_categories_api():
     """获取所有支出分类（预设 + 自定义）"""
-    categories = Category.query.all()
-    return jsonify({
-        "success": True,
-        "data": [{
-            "id": c.id,
-            "name": c.name
-        } for c in categories]
-    })
+    result = get_categories()
+    if result['success']:
+        return jsonify(result), 200
+    return jsonify(result), 400
 
 
 @bp.route('/categories', methods=['POST'])
-def add_category():
+def add_category_api():
     """添加一个新的支出分类"""
     data = request.json
     if 'name' not in data:
         return jsonify({"success": False, "error": "Missing name"}), 400
 
-    new_name = data['name'].strip()
-
-    # 检查是否已存在同名分类
-    existing = Category.query.filter(db.func.lower(Category.name) == db.func.lower(new_name)).first()
-    if existing:
-        return jsonify({
-            "success": False,
-            "error": f"分类 '{new_name}' 已存在"
-        }), 400
-
-    new = Category(name=new_name)
-    db.session.add(new)
-    db.session.commit()
-
-    return jsonify({
-        "success": True,
-        "data": {
-            "id": new.id,
-            "name": new.name
-        }
-    }), 201
+    result = add_category(data)
+    if result['success']:
+        return jsonify(result), 201
+    return jsonify(result), 400
 
 
 @bp.route('/categories/<int:id>', methods=['PUT'])
-def update_category(id):
+def update_category_api(id):
     """更新指定 ID 的分类名称"""
     data = request.json
     new_name = data.get('name')
@@ -347,46 +183,27 @@ def update_category(id):
     if not new_name:
         return jsonify({"success": False, "error": "Missing name"}), 400
 
-    cat = Category.query.get_or_404(id)
-
-    # 检查是否有其他分类使用了相同的名称（排除自己）
-    existing = Category.query.filter(
-        db.func.lower(Category.name) == db.func.lower(new_name),
-        Category.id != cat.id
-    ).first()
-
-    if existing:
-        return jsonify({
-            "success": False,
-            "error": f"分类 '{new_name}' 已存在"
-        }), 400
-
-    cat.name = new_name
-    db.session.commit()
-
-    return jsonify({
-        "success": True,
-        "data": {
-            "id": cat.id,
-            "name": cat.name
-        }
-    })
+    
+    result = update_category(id, new_name)
+    if result['success']:
+        return jsonify(result), 200
+    return jsonify(result), 400
 
 
 @bp.route('/categories/<int:id>', methods=['DELETE'])
-def delete_category(id):
+def delete_category_api(id):
     """删除指定 ID 的支出分类"""
-    cat = Category.query.get_or_404(id)
-    db.session.delete(cat)
-    db.session.commit()
-    return jsonify({"success": True, "data": "分类删除成功"})
+    result = delete_category(id)
+    if result['success']:
+        return jsonify(result), 200
+    return jsonify(result), 400
 
 
 # ============ 报表分析接口 ============
 
 
 @bp.route('/reports', methods=['GET'])
-def get_reports():
+def get_reports_api():
     """根据时间范围获取支出分类统计数据"""
     username = session.get('username', 'No user logged in')
     range_type = request.args.get('range', 'month')  # month/quarter/year
@@ -394,44 +211,7 @@ def get_reports():
     if username == 'No user logged in':
         return jsonify({"success": False, "error": "Missing username"}), 400
 
-    now = datetime.utcnow()
-
-    if range_type == 'month':
-        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        title = '本月支出分类'
-    elif range_type == 'quarter':
-        quarter = (now.month - 1) // 3 + 1
-        quarter_start_month = 3 * (quarter - 1) + 1
-        start_date = now.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
-        title = '本季度支出分类'
-    elif range_type == 'year':
-        start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        title = '本年度支出分类'
-    else:
-        return jsonify({"success": False, "error": "Invalid range type"}), 400
-
-    # 查询时间范围内所有支出类交易
-    transactions = Transaction.query.filter(
-        Transaction.username == username,
-        Transaction.type == 'expense',
-        Transaction.date >= start_date
-    ).all()
-
-    # 按分类统计金额
-    category_summary = {}
-    for t in transactions:
-        if t.category not in category_summary:
-            category_summary[t.category] = 0
-        category_summary[t.category] += t.amount
-
-    categories = [{"name": k, "amount": round(v, 2)} for k, v in category_summary.items()]
-    total = round(sum(category_summary.values()), 2)
-
-    return jsonify({
-        "success": True,
-        "data": {
-            "title": title,
-            "total": total,
-            "categories": categories
-        }
-    })
+    result = get_summary(username, range_type)
+    if result['success']:
+        return jsonify(result), 200
+    return jsonify(result), 400

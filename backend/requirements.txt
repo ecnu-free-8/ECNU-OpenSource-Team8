@@ -1,2 +1,5 @@
-Flask
+flask
 flask-cors
+flask-sqlalchemy
+openai
+pymysql

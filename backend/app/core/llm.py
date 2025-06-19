@@ -6,7 +6,24 @@ from openai import OpenAI
 available_functions = {
     "get_current_datetime": F.get_current_datetime,
     "add": F.add,
+    "get_summary": F.get_summary,
+    "get_transactions": F.get_transactions,
+    "create_transaction": F.create_transaction,
+    "update_transaction": F.update_transaction,
+    "delete_transaction": F.delete_transaction,
+    "get_budgets": F.get_budgets,
+    "create_budget": F.create_budget,
+    "get_categories": F.get_categories,
+    "add_category": F.add_category,
+    "update_category": F.update_category,
+    "delete_category": F.delete_category,
+    "get_reports": F.get_reports,
 }
+
+# for name, func in available_functions.items():
+#     print(name)
+#     print(func.__doc__)
+#     print('——————————————————————————————————————————————————————————')
 
 url = 'https://chat.ecnu.edu.cn/open/api/v1'
 api_key = 'sk-7520506088e9433181ebb26557dac875'
@@ -19,8 +36,8 @@ You are a professional expense tracking assistant. Your primary task is to help 
 1. The tool selected must be one of the tools in the tool list.
 2. When unable to find the input for the tool, please adjust immediately and use the AskHumanHelpTool to ask the user for additional parameters.
 3. When you believe that you have the final answer and can respond to the user, please use the TaskCompleteTool.
-4. You must response in Chinese;
-
+4. The Thought field must be explained in chinese, and it should clearly explain why you chose this tool and what you plan to do with it.;
+5. You must respond in JSON format, and the response must contain the following fields:
 """
     prompt_str += "### Tool List ###\n"
     descriptions = []
@@ -56,17 +73,18 @@ def call_llm(prompt, username, functions=None):
     Returns:
         dict: A dictionary containing the status, thought, and result of the LLM response.
     """
+    
     client = OpenAI(api_key=api_key, base_url=url)
     
     messages = [
         {"role": "system", "content": format_tools_for_prompt(available_functions)},
         {"role": "user", "content": f"username: {username}" + prompt}
     ]
-    
     response = client.chat.completions.create(
         model="ecnu-reasoner",
         messages=messages,
     )
+    
     json_response = json.loads(response.choices[0].message.content)
     if json_response.get("status", "false") == "false":
         return {'status': False}
@@ -95,6 +113,7 @@ def chat_llm(username, prompt):
         dict: A dictionary containing the status and data of the response.
     """
     result = call_llm(prompt, username, functions=available_functions)
+    
     client = OpenAI(api_key=api_key, base_url=url)
     if result['status'] == False:
         messages = [
@@ -106,7 +125,7 @@ def chat_llm(username, prompt):
             messages=messages,
         )
         return {
-            "status": True,
+            "success": True,
             "data": response.choices[0].message.content.strip()
         }
     
@@ -124,7 +143,7 @@ def chat_llm(username, prompt):
         messages=messages,
     )
     return {
-        "status": True,
+        "success": True,
         "data": response.choices[0].message.content.strip()
     }
     
