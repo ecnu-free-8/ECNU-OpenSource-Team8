@@ -1,7 +1,7 @@
 import datetime
 import json
+import app
 from app.models import *
-
 def get_current_datetime() -> str:
     """Get the current date and time in ISO format."""
     return datetime.datetime.now().isoformat()
@@ -338,6 +338,7 @@ def get_categories() -> dict:
             } for c in categories]
         }
     except Exception as e:
+        print(str(e))
         return {
             "success": False,
             "error": str(e)
@@ -346,28 +347,28 @@ def get_categories() -> dict:
 def add_category(name: str) -> dict:
     """
     添加一个新的支出分类
-    
     Args:
         name (str): 分类名称
-        
     Returns:
         dict: 包含添加结果的字典
     """
+    print("———————————————————正在添加支出分类———————————————————")
+    print(f"添加分类名称: {name}")  # 调试输出
+    print("——————————————————————————————————————————————————")
     try:
-        new_name = data['name'].strip()
 
         # 检查是否已存在同名分类
-        existing = Category.query.filter(db.func.lower(Category.name) == db.func.lower(new_name)).first()
+        existing = Category.query.filter(db.func.lower(Category.name) == db.func.lower(name)).first()
         if existing:
             return {
                 "success": False,
-                "error": f"分类 '{new_name}' 已存在"
+                "error": f"分类 '{name}' 已存在"
             }
 
-        new = Category(name=new_name)
+        new = Category(name=name)
         db.session.add(new)
         db.session.commit()
-
+        print('———————————————————添加分类成功———————————————————')
         return {
             "success": True,
             "data": {
@@ -376,6 +377,8 @@ def add_category(name: str) -> dict:
             }
         }
     except Exception as e:
+        print('———————————————————添加分类失败———————————————————')
+        print(str(e))  # 打印错误信息
         return {
             "success": False,
             "error": str(e)
@@ -434,6 +437,7 @@ def delete_category(id: int) -> dict:
             "message": "分类删除成功"
         }
     except Exception as e:
+        print(f"删除分类失败: {str(e)}")  # 打印错误信息
         return {
             "success": False,
             "error": str(e)
