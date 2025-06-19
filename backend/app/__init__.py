@@ -18,6 +18,7 @@ def create_app(config_name='development'):
     )
     app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://remote:520%40111zz@172.23.166.117/course'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SESSION_COOKIE_SECURE'] = False # 开发环境下可以设置为 False，生产环境下建议设置为 True 并使用 HTTPS
     db.init_app(app)
     # 注册 API 蓝图
     from .api import bp as api_blueprint # 从 app.api 包导入蓝图实例

@@ -11,7 +11,7 @@ class Config:
     def __init__(self):
         self.DEBUG = True
         self.TESTING = False
-        self.SECRET_KEY = 'your_secret_key'
+        self.SECRET_KEY = '998244353'
         
 class Development(Config):
     def __init__(self):
