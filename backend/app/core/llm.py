@@ -36,9 +36,16 @@ You are a professional expense tracking assistant. Your primary task is to help 
 1. The tool selected must be one of the tools in the tool list.
 2. When unable to find the input for the tool, please adjust immediately and use the AskHumanHelpTool to ask the user for additional parameters.
 3. When you believe that you have the final answer and can respond to the user, please use the TaskCompleteTool.
-4. The Thought field must be explained in chinese, and it should clearly explain why you chose this tool and what you plan to do with it.;
-5. You must respond in JSON format, and the response must contain the following fields:
+4. The Thought field must be explained in chinese.
+5. You must respond in JSON format, DO NOT include "```json" tags.
 """
+    prompt_str += "### Partial parameter constraints ###\n"
+    prompt_str += "1. 现在已经获取所有分类的 id 与名称，如果需要修改或删除请使用下方的 id (最大id不表示分类个数)\n"
+    categories = F.get_categories()['data']
+    for category in categories:
+        prompt_str += f"- {category}\n"
+    prompt_str += "2. type 参数有下面两种\n"
+    prompt_str += "- expense\n- income\n"
     prompt_str += "### Tool List ###\n"
     descriptions = []
     for tool_name, tool_function in tools.items():
@@ -55,13 +62,12 @@ You should only respond in JSON format as described below
 ### RESPONSE FORMAT ###
     {"thought": "为什么选择这个工具的思考","status": "true", "tool_names": "工具名","args_list": {“工具名1”:{"参数名1": "参数值1","参数名2": "参数值2"}}}
   
-    {"thought": "用户没有提供具体问题，因此需要请求用户提供更多信息以便选择适当的工具。","status": "false", "tool_names": "","args_list": {}}
+    {"thought": "用户没有提供具体问题，因此需要请求用户提供更多信息以便选择适当的工具。","tool_names": "", "status": "false","args_list": {}}
 
 Make sure that the response content you return is all in JSON format and does not contain any extra content.
 """
     return prompt_str
 
-# print(format_tools_for_prompt(available_functions) + "\n————————————————————————————————————————\n\n")
 def call_llm(prompt, username, functions=None):
     """
     Call the LLM with a prompt and optional functions.
@@ -75,16 +81,17 @@ def call_llm(prompt, username, functions=None):
     """
     
     client = OpenAI(api_key=api_key, base_url=url)
-    
     messages = [
         {"role": "system", "content": format_tools_for_prompt(available_functions)},
         {"role": "user", "content": f"username: {username}" + prompt}
     ]
+    # print(messages[0]['content'])
     response = client.chat.completions.create(
         model="ecnu-reasoner",
         messages=messages,
     )
-    
+    print("—————————————————LLM Response————————————————————————")
+    print(response.choices[0].message.content)  # Debugging output
     json_response = json.loads(response.choices[0].message.content)
     if json_response.get("status", "false") == "false":
         return {'status': False}
@@ -130,7 +137,7 @@ def chat_llm(username, prompt):
         }
     
     messages = [
-        {"role": "system", "content": "You are a professional expense tracking assistant."},
+        {"role": "system", "content": "You are a professional expense tracking assistant. Please respond to the user's request based on the function call result."},
         {"role": "user", "content": "用户请求为：\n" + prompt + f"""
 
 根据用户请求调用函数后结果为：\n"+ {json.dumps(result, ensure_ascii=False)} + "\n\n请给一个合适的回应比如：
@@ -151,3 +158,4 @@ if __name__ == "__main__":
     # Example usage
     print(call_llm("计算 329485234587 和 23985789234 的和", "user1", functions=available_functions))
     print(chat_llm("计算 329485234587 和 23985789234 的和", "user1"))
+    # 因为涉及到Flask上下文， 涉及到数据库查询的只能通过api调用来测试
