@@ -327,9 +327,9 @@ def get_categories() -> dict:
     """
     try:
         categories = Category.query.all()
-        print("———————————————————正在获取所有支出分类———————————————————")
-        print([{"id": c.id, "name": c.name} for c in categories])  # 调试输出
-        print("——————————————————————————————————————————————————")
+        # print("———————————————————正在获取所有支出分类———————————————————")
+        # print([{"id": c.id, "name": c.name} for c in categories])  # 调试输出
+        # print("——————————————————————————————————————————————————")
         return {
             "success": True,
             "data": [{
