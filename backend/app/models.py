@@ -16,8 +16,8 @@ class Budget(db.Model):
     target_amount = db.Column(db.Float, nullable=False)
     current_amount = db.Column(db.Float, default=0)
     category = db.Column(db.String(20), nullable=False)
-    start_date = db.Column(db.Date)
-    end_date = db.Column(db.Date)
+    start_date = db.Column(db.Date, default=datetime.utcnow)
+    end_date = db.Column(db.Date, default=datetime.utcnow)
     username = db.Column(db.Integer, nullable=False)
 
 class Category(db.Model):

@@ -1,15 +1,17 @@
-from flask import request, jsonify
-from . import bp
 from app.core.functions import (
     add, get_summary, get_transactions, create_transaction,
-    update_transaction, delete_transaction, get_budgets, 
+    update_transaction, delete_transaction, get_budgets,
     create_budget, get_categories, add_category, update_category,
-    delete_category, 
+    delete_category,
 )
-from flask import session, redirect, url_for, render_template
 from app.core.llm import call_llm, chat_llm
-
 from app.models import *
+from flask import request, jsonify
+from flask import session
+
+from . import bp
+
+import json
 
 # ============ 测试接口 ============
 @bp.route('/test', methods=['GET'])
@@ -42,7 +44,39 @@ def chat():
             "success": False,
             "error": "用户不存在"
         }), 401
-    result = chat_llm(username, request.json.get('prompt', ''))
+
+    message = request.json.get('message', '')
+    try:
+        user_chat = Chat(
+            content=message,
+            type=1,  # 用户消息
+            username=username
+        )
+        db.session.add(user_chat)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "error": "保存用户消息失败"
+        }), 500
+
+    result = chat_llm(username, request.json.get('message', ''))
+
+    try:
+        robot_chat = Chat(
+            content=reply_content,
+            type=0,  # 机器人消息
+            username=username
+        )
+        db.session.add(robot_chat)
+        db.session.commit()  # 提交事务
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "error": "保存机器人回复失败"
+        }), 500
+
     if result['success']:
         return jsonify(result), 200
     else:
@@ -50,6 +84,36 @@ def chat():
             "success": False,
             "error": "LLM调用失败"
         }), 500
+
+@bp.route('/chat/history', methods=['GET'])
+def get_chat_history():
+    username = session.get('username', 'No user logged in')
+    if username == 'No user logged in':
+        return jsonify({
+            "success": False,
+            "error": "用户不存在"
+        }), 401
+
+    # 获取查询参数 limit，默认是 5
+    limit = request.args.get('limit', default=5, type=int)
+
+    # 查询当前用户的聊天记录，按时间倒序排列，取前 limit 条
+    chat_records = Chat.query.filter_by(username=username).order_by(Chat.date.desc()).limit(limit).all()
+
+    # 转换成字典格式返回
+    result = [{
+        "id": record.id,
+        "content": record.content,
+        "type": record.type,  # 0: robot, 1: user
+        "date": record.date.isoformat() if record.date else None
+    } for record in chat_records]
+
+    return jsonify({
+        "success": True,
+        "data": result
+    }), 200
+
+# ============ 交易接口 ============
 
 @bp.route('/summary', methods=['GET'])
 def get_summary_api():
@@ -140,13 +204,14 @@ def create_budget_api():
     if username == 'No user logged in':
         return jsonify({"success": False, "error": "Missing username"}), 400
     data = request.json
-    required_fields = ['name', 'target_amount', 'category', 'username']
+    required_fields = ['name', 'target_amount', 'category']
     for field in required_fields:
         if field not in data:
             return jsonify({"success": False, "error": f"Missing {field}"}), 400
     result = create_budget(username=username, data=data)
+    print(result)
     if result['success']:
-        return jsonify(result), 201
+        return jsonify(result), 200
     return jsonify(result), 400
 
 
@@ -170,7 +235,7 @@ def add_category_api():
 
     result = add_category(data)
     if result['success']:
-        return jsonify(result), 201
+        return jsonify(result), 200
     return jsonify(result), 400
 
 
