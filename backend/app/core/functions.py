@@ -1,11 +1,11 @@
-import datetime
+from datetime import datetime
 
 from app.models import *
 
 
 def get_current_datetime() -> str:
     """Get the current date and time in ISO format."""
-    return datetime.datetime.now().isoformat()
+    return datetime.now().isoformat()
 
 
 def add(a: int, b: int) -> int:
@@ -22,7 +22,7 @@ def get_summary(username: str) -> dict:
     Returns:
         dict: 包含收入、支出和结余的摘要信息
     """
-
+    print("————————正在获取当前月份记录——————————————")
     # 获取当前时间
     now = datetime.utcnow()
 
@@ -63,6 +63,7 @@ def get_summary(username: str) -> dict:
             }
         }
     except Exception as e:
+        print(str(e))
         return {
             "success": False,
             "error": str(e)
