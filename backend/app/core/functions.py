@@ -1,14 +1,17 @@
 import datetime
-import json
-import app
+
 from app.models import *
+
+
 def get_current_datetime() -> str:
     """Get the current date and time in ISO format."""
     return datetime.datetime.now().isoformat()
 
+
 def add(a: int, b: int) -> int:
     """Add a and b."""
     return a + b
+
 
 def get_summary(username: str) -> dict:
     """
@@ -51,20 +54,21 @@ def get_summary(username: str) -> dict:
         expense = sum(t.amount for t in expense_records)
         balance = income - expense
 
-        return jsonify({
+        return {
             "success": True,
             "data": {
                 "expense": round(expense, 2),
                 "income": round(income, 2),
                 "balance": round(balance, 2)
             }
-        })
+        }
     except Exception as e:
-        return jsonify({
+        return {
             "success": False,
             "error": str(e)
-        })
-        
+        }
+
+
 def get_transactions(username: str, limit: int = 10) -> dict:
     """
     获取用户的最近交易记录，默认按时间倒序返回10条
@@ -76,7 +80,8 @@ def get_transactions(username: str, limit: int = 10) -> dict:
         dict: 包含交易记录的列表
     """
     try:
-        transactions = Transaction.query.filter_by(username=username).order_by(Transaction.date.desc()).limit(limit).all()
+        transactions = Transaction.query.filter_by(username=username).order_by(Transaction.date.desc()).limit(
+            limit).all()
         return {
             "success": True,
             "data": [{
@@ -93,6 +98,7 @@ def get_transactions(username: str, limit: int = 10) -> dict:
             "success": False,
             "error": str(e)
         }
+
 
 def create_transaction(username: str, data: dict) -> dict:
     """
@@ -112,7 +118,7 @@ def create_transaction(username: str, data: dict) -> dict:
             category=data['category'],
             description=data.get('description'),
             date=datetime.utcnow(),
-            username=data['username']
+            username=username
         )
         db.session.add(new)
         db.session.commit()
@@ -137,7 +143,8 @@ def create_transaction(username: str, data: dict) -> dict:
             "success": False,
             "error": str(e)
         }
-        
+
+
 def update_transaction(id: int, data: dict) -> dict:
     """
     更新指定 ID 的交易记录
@@ -173,7 +180,7 @@ def update_transaction(id: int, data: dict) -> dict:
         if trans.type == 'expense':
             # 再加上新值
             update_budget_for_transaction(trans.username, trans.category, trans.amount, trans.date)
-        
+
         return {
             "success": True,
             "data": {
@@ -191,7 +198,8 @@ def update_transaction(id: int, data: dict) -> dict:
             "error": str(e)
         }
 
-def update_budget_for_transaction(username, category, amount_change, transaction_date): # 非 API 函数
+
+def update_budget_for_transaction(username, category, amount_change, transaction_date):  # 非 API 函数
     """
     当交易记录变更时，更新对应的预算
     :param username: 用户ID
@@ -213,6 +221,7 @@ def update_budget_for_transaction(username, category, amount_change, transaction
     for budget in budgets:
         budget.current_amount = max(budget.current_amount + amount_change, 0)  # 防止负值
         db.session.add(budget)
+
 
 def delete_transaction(id: int) -> dict:
     """
@@ -243,6 +252,7 @@ def delete_transaction(id: int) -> dict:
             "error": str(e)
         }
 
+
 def get_budgets(username: str) -> dict:
     """
     获取用户的所有预算计划
@@ -269,6 +279,7 @@ def get_budgets(username: str) -> dict:
             "error": str(e)
         }
 
+
 def create_budget(username: str, data: dict) -> dict:
     """
     创建一个新的预算计划
@@ -283,6 +294,14 @@ def create_budget(username: str, data: dict) -> dict:
     try:
         category_name = data['category']
 
+        from datetime import date
+        import calendar
+
+        now = date.today()
+        start_date = date(now.year, now.month, 1)
+        last_day = calendar.monthrange(now.year, now.month)[1]
+        end_date = date(now.year, now.month, last_day)
+
         # 检查 category 是否是预设分类之一
         existing_category = Category.query.filter_by(name=category_name).first()
         if not existing_category:
@@ -296,9 +315,11 @@ def create_budget(username: str, data: dict) -> dict:
             target_amount=data['target_amount'],
             current_amount=0,
             category=category_name,
+            start_date=start_date,
+            end_date=end_date,
             username=username,
         )
-
+        print(budget)
         db.session.add(budget)
         db.session.commit()
 
@@ -311,13 +332,14 @@ def create_budget(username: str, data: dict) -> dict:
                 "current_amount": budget.current_amount,
                 "category": budget.category
             }
-        }, 201
+        }
     except Exception as e:
         return {
             "success": False,
             "error": str(e)
         }
-        
+
+
 def get_categories() -> dict:
     """
     获取所有支出分类（预设 + 自定义）
@@ -343,7 +365,8 @@ def get_categories() -> dict:
             "success": False,
             "error": str(e)
         }
-        
+
+
 def add_category(name: str) -> dict:
     """
     添加一个新的支出分类
@@ -383,7 +406,8 @@ def add_category(name: str) -> dict:
             "success": False,
             "error": str(e)
         }
-        
+
+
 def update_category(id: int, new_name: str) -> dict:
     """
     更新指定 ID 的分类名称
@@ -402,10 +426,10 @@ def update_category(id: int, new_name: str) -> dict:
     ).first()
 
     if existing:
-        return jsonify({
+        return {
             "success": False,
             "error": f"分类 '{new_name}' 已存在"
-        }), 400
+        }
 
     cat.name = new_name
     db.session.commit()
@@ -417,7 +441,8 @@ def update_category(id: int, new_name: str) -> dict:
             "name": cat.name
         }
     }
-    
+
+
 def delete_category(id: int) -> dict:
     """
     删除指定 ID 的支出分类
@@ -442,6 +467,7 @@ def delete_category(id: int) -> dict:
             "success": False,
             "error": str(e)
         }
+
 
 def get_reports(username: str, range_type: str = 'month') -> dict:
     """
