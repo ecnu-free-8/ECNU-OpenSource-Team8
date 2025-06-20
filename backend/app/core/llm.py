@@ -1,5 +1,6 @@
 import json
 import datetime
+from flask import session
 import app.core.functions as F
 from openai import OpenAI
 
@@ -40,11 +41,13 @@ You are a professional expense tracking assistant. Your primary task is to help 
 5. You must respond in JSON format, DO NOT include "```json" tags.
 """
     prompt_str += "### Partial parameter constraints ###\n"
-    prompt_str += "1. 现在已经获取所有分类的 id 与名称，如果需要修改或删除请使用下方的 id (最大id不表示分类个数)\n"
+    prompt_str += "1. 当前用户名为: \n"
+    prompt_str += session['username'] + '\n'
+    prompt_str += "2. 现在已经获取所有分类的 id 与名称，如果需要修改或删除请使用下方的 id (最大id不表示分类个数)\n"
     categories = F.get_categories()['data']
     for category in categories:
         prompt_str += f"- {category}\n"
-    prompt_str += "2. type 参数有下面两种\n"
+    prompt_str += "3. type 参数有下面两种\n"
     prompt_str += "- expense\n- income\n"
     prompt_str += "### Tool List ###\n"
     descriptions = []
@@ -79,13 +82,11 @@ def call_llm(prompt, username, functions=None):
     Returns:
         dict: A dictionary containing the status, thought, and result of the LLM response.
     """
-    
     client = OpenAI(api_key=api_key, base_url=url)
     messages = [
         {"role": "system", "content": format_tools_for_prompt(available_functions)},
         {"role": "user", "content": f"username: {username}" + prompt}
     ]
-    # print(messages[0]['content'])
     response = client.chat.completions.create(
         model="ecnu-reasoner",
         messages=messages,

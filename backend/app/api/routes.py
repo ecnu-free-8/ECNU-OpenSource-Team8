@@ -61,10 +61,9 @@ def chat():
         }), 500
 
     result = chat_llm(username, request.json.get('message', ''))
-
     try:
         robot_chat = Chat(
-            content=reply_content,
+            content=json.dumps(result['data'], ensure_ascii=False),
             type=0,  # 机器人消息
             username=username
         )
@@ -72,6 +71,7 @@ def chat():
         db.session.commit()  # 提交事务
     except Exception as e:
         db.session.rollback()
+
         return jsonify({
             "success": False,
             "error": "保存机器人回复失败"
