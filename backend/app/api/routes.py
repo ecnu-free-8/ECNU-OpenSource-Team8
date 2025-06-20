@@ -28,7 +28,6 @@ def test():
 def add_api():
     username = session.get('username', 'No user logged in')
     data = request.json
-    print(data)
     return jsonify({
         "success": True,
         "data": {"username": username, "result": add(**data) },
@@ -209,7 +208,6 @@ def create_budget_api():
         if field not in data:
             return jsonify({"success": False, "error": f"Missing {field}"}), 400
     result = create_budget(username=username, data=data)
-    print(result)
     if result['success']:
         return jsonify(result), 200
     return jsonify(result), 400
