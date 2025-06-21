@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Loader2, User, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, Loader2, User, Lock } from 'lucide-react';
 import { useLogin, useRegister } from '../hooks/useAuth';
 
 const LoginPage = ({ onLoginSuccess }) => {
@@ -7,8 +7,8 @@ const LoginPage = ({ onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
 
   const loginMutation = useLogin();
@@ -24,29 +24,46 @@ const LoginPage = ({ onLoginSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
+    console.log('🚀 Form submitted:', {
+      isLogin,
+      username: formData.username,
+      password: formData.password ? '***' : 'empty',
+      confirmPassword: formData.confirmPassword ? '***' : 'empty'
+    });
+
     try {
       if (isLogin) {
         // 登录
-        await loginMutation.mutateAsync({
+        console.log('🔑 Attempting login...');
+        const result = await loginMutation.mutateAsync({
           username: formData.username,
           password: formData.password
         });
+        console.log('✅ Login successful:', result);
       } else {
-        // 注册
-        await registerMutation.mutateAsync({
+        // 注册 - 验证密码确认
+        if (formData.password !== formData.confirmPassword) {
+          alert('两次输入的密码不一致');
+          return;
+        }
+
+        console.log('📝 Attempting registration...');
+        const result = await registerMutation.mutateAsync({
           username: formData.username,
-          email: formData.email,
           password: formData.password
         });
+        console.log('✅ Registration successful:', result);
       }
-      
-      // 成功后调用回调
+
+      // 只有成功时才调用回调
+      console.log('🎉 Calling onLoginSuccess...');
       if (onLoginSuccess) {
         onLoginSuccess();
       }
     } catch (error) {
-      // 错误处理已在mutation中完成
+      // 错误处理已在mutation中完成，不要调用成功回调
+      console.error('❌ Form submission failed:', error);
     }
   };
 
@@ -118,26 +135,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                 </div>
               </div>
 
-              {/* 邮箱（仅注册时显示） */}
-              {!isLogin && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    邮箱
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      placeholder="请输入邮箱地址"
-                    />
-                  </div>
-                </div>
-              )}
+
 
               {/* 密码 */}
               <div>
@@ -164,6 +162,27 @@ const LoginPage = ({ onLoginSuccess }) => {
                   </button>
                 </div>
               </div>
+
+              {/* 确认密码（仅注册时显示） */}
+              {!isLogin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    确认密码
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="请再次输入密码"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* 提交按钮 */}
               <button
@@ -197,6 +216,21 @@ const LoginPage = ({ onLoginSuccess }) => {
             <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-blue-700 dark:text-blue-300 text-xs">
                 💡 演示账户: demo/123456 或 admin/admin
+              </p>
+            </div>
+          )}
+
+          {/* 调试信息 */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <p className="text-gray-700 dark:text-gray-300 text-xs">
+                🔧 调试模式: 请查看浏览器控制台获取详细日志
+              </p>
+              <p className="text-gray-700 dark:text-gray-300 text-xs mt-1">
+                API地址: {process.env.REACT_APP_API_BASE_URL || 'http://localhost:5123/api'}
+              </p>
+              <p className="text-gray-700 dark:text-gray-300 text-xs mt-1">
+                Mock数据: {process.env.REACT_APP_USE_MOCK_DATA === 'true' ? '启用' : '禁用'}
               </p>
             </div>
           )}

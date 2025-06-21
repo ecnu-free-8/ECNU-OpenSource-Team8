@@ -2,31 +2,36 @@
 
 ## 设计原则
 - **简单实用** - 能完成基本功能即可
-- **用户隔离** - 所有请求需要带上username
+- **Session认证** - 使用session管理用户登录状态
 - **统一格式** - 标准化的请求和响应格式
 
 ## 1. 通用规范
 
-### 1.1 请求格式
-所有API请求都需要包含用户身份标识：
+### 1.1 认证方式
+- 后端使用Flask session管理用户登录状态
+- 登录成功后，用户信息存储在session中
+- 后续API请求自动从session获取用户身份，无需手动传递username
 
-**查询参数方式（GET请求）:**
+### 1.2 请求格式
+**认证接口使用Form数据:**
 ```
-GET /api/summary?username=demo_user
+POST /api/login
+Content-Type: application/x-www-form-urlencoded
+
+username=demo_user&password=123456
 ```
 
-**请求体方式（POST/PUT请求）:**
+**其他接口使用JSON数据:**
 ```json
 {
-  "username": "demo_user",
   "amount": 25.0,
   "category": "餐饮"
 }
 ```
 
-### 1.2 响应格式
+### 1.3 响应格式
 
-**成功响应:**
+**API接口成功响应:**
 ```json
 {
   "success": true,
@@ -34,11 +39,21 @@ GET /api/summary?username=demo_user
 }
 ```
 
-**错误响应:**
+**API接口错误响应:**
 ```json
 {
   "success": false,
   "error": "具体错误信息"
+}
+```
+
+**认证接口响应格式:**
+```json
+{
+  "message": "Login successful",
+  "user": {
+    "username": "demo_user"
+  }
 }
 ```
 
@@ -47,23 +62,20 @@ GET /api/summary?username=demo_user
 ### 2.1 用户登录
 ```
 POST /api/login
+Content-Type: application/x-www-form-urlencoded
 ```
 
-**请求参数:**
-```json
-{
-  "username": "demo_user",
-  "password": "123456"
-}
+**请求参数 (Form数据):**
+```
+username=demo_user&password=123456
 ```
 
 **响应示例:**
 ```json
 {
-  "success": true,
-  "data": {
-    "username": "demo_user",
-    "email": "demo@example.com"
+  "message": "Login successful",
+  "user": {
+    "username": "demo_user"
   }
 }
 ```
@@ -71,25 +83,31 @@ POST /api/login
 ### 2.2 用户注册
 ```
 POST /api/register
+Content-Type: application/x-www-form-urlencoded
 ```
 
-**请求参数:**
+**请求参数 (Form数据):**
+```
+username=new_user&password=123456
+```
+*注意：不需要email字段，前端会要求用户确认密码*
+
+**响应示例:**
 ```json
 {
-  "username": "new_user",
-  "email": "user@example.com",
-  "password": "123456"
+  "message": "User registered successfully"
 }
+```
+
+### 2.3 用户登出
+```
+GET /logout
 ```
 
 **响应示例:**
 ```json
 {
-  "success": true,
-  "data": {
-    "username": "new_user",
-    "email": "user@example.com"
-  }
+  "message": "Logout successful"
 }
 ```
 
@@ -97,8 +115,9 @@ POST /api/register
 
 ### 3.1 获取财务摘要
 ```
-GET /api/summary?username=demo_user
+GET /api/summary
 ```
+*注意：用户身份从session自动获取*
 
 **响应示例:**
 ```json
@@ -114,12 +133,12 @@ GET /api/summary?username=demo_user
 
 ### 3.2 获取最近交易
 ```
-GET /api/transactions?username=demo_user&limit=10
+GET /api/transactions?limit=10
 ```
 
 **查询参数:**
-- `username` (必需): 用户名
 - `limit` (可选): 返回条数，默认10
+*注意：用户身份从session自动获取，不支持sortBy和sortOrder参数*
 
 **响应示例:**
 ```json
