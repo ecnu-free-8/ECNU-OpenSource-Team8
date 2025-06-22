@@ -140,7 +140,7 @@ def create_transaction(username: str, data: dict) -> dict:
         print(f"[DEBUG] 创建交易: username={username}, data={data}")
         
         # 处理金额：支出应该存储为负数
-        amount = data['amount']
+        amount = float(data['amount'])
         if data['type'] == 'expense' and amount > 0:
             amount = -amount
         
@@ -251,7 +251,7 @@ def update_budget_for_transaction(username, category, amount_change, transaction
     
     # 将datetime转换为date进行比较
     transaction_date_only = transaction_date.date() if hasattr(transaction_date, 'date') else transaction_date
-    
+
     # 找到所有该用户、该分类、时间范围内有效的预算
     budgets = Budget.query.filter(
         Budget.username == username,
@@ -264,7 +264,7 @@ def update_budget_for_transaction(username, category, amount_change, transaction
     
     for budget in budgets:
         old_amount = budget.current_amount
-        budget.current_amount = max(budget.current_amount + amount_change, 0)  # 防止负值
+        budget.current_amount = max(budget.current_amount - amount_change, 0)  # 防止负值
         print(f"[DEBUG] 预算 '{budget.name}' 更新: {old_amount} -> {budget.current_amount}")
         db.session.add(budget)
     
