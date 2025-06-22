@@ -140,7 +140,7 @@ def create_transaction(username: str, data: dict) -> dict:
         print(f"[DEBUG] 创建交易: username={username}, data={data}")
         
         # 处理金额：支出应该存储为负数
-        amount = int(data['amount'])
+        amount = float(data['amount'])
         if data['type'] == 'expense' and amount > 0:
             amount = -amount
         
