@@ -85,17 +85,7 @@ const UserProfile = () => {
         )}
       </div>
 
-      {/* 开发模式信息 */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-          <p className="text-yellow-700 dark:text-yellow-300 text-sm mb-2">
-            🔧 开发模式 - 使用模拟数据
-          </p>
-          <p className="text-yellow-600 dark:text-yellow-400 text-xs">
-            💡 提示：不同用户名会显示不同的模拟数据
-          </p>
-        </div>
-      )}
+
 
       {/* 退出登录按钮 */}
       <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">

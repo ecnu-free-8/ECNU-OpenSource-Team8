@@ -211,29 +211,7 @@ const LoginPage = ({ onLoginSuccess }) => {
             )}
           </div>
 
-          {/* 演示用户提示 */}
-          {process.env.NODE_ENV === 'development' && isLogin && (
-            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <p className="text-blue-700 dark:text-blue-300 text-xs">
-                💡 演示账户: demo/123456 或 admin/admin
-              </p>
-            </div>
-          )}
 
-          {/* 调试信息 */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <p className="text-gray-700 dark:text-gray-300 text-xs">
-                🔧 调试模式: 请查看浏览器控制台获取详细日志
-              </p>
-              <p className="text-gray-700 dark:text-gray-300 text-xs mt-1">
-                API地址: {process.env.REACT_APP_API_BASE_URL || 'http://localhost:5123/api'}
-              </p>
-              <p className="text-gray-700 dark:text-gray-300 text-xs mt-1">
-                Mock数据: {process.env.REACT_APP_USE_MOCK_DATA === 'true' ? '启用' : '禁用'}
-              </p>
-            </div>
-          )}
 
           {/* 底部提示 */}
           <div className="text-center mt-4">

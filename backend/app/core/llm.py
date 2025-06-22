@@ -82,32 +82,49 @@ def call_llm(prompt, username, functions=None):
     Returns:
         dict: A dictionary containing the status, thought, and result of the LLM response.
     """
-    client = OpenAI(api_key=api_key, base_url=url)
-    messages = [
-        {"role": "system", "content": format_tools_for_prompt(available_functions)},
-        {"role": "user", "content": f"username: {username}" + prompt}
-    ]
-    response = client.chat.completions.create(
-        model="ecnu-reasoner",
-        messages=messages,
-    )
     import logging
-    logging.debug("—————————————————LLM Response————————————————————————")
-    logging.debug(response.choices[0].message.content)  # Debugging output
-    json_response = json.loads(response.choices[0].message.content)
-    if json_response.get("status", "false") == "false":
+    try:
+        client = OpenAI(api_key=api_key, base_url=url)
+        messages = [
+            {"role": "system", "content": format_tools_for_prompt(available_functions)},
+            {"role": "user", "content": f"username: {username}" + prompt}
+        ]
+        response = client.chat.completions.create(
+            model="ecnu-reasoner",
+            messages=messages,
+        )
+        logging.debug("—————————————————LLM Response————————————————————————")
+        logging.debug(response.choices[0].message.content)  # Debugging output
+        
+        try:
+            json_response = json.loads(response.choices[0].message.content)
+        except json.JSONDecodeError as e:
+            logging.error(f"JSON解析失败: {str(e)}")
+            logging.error(f"LLM原始响应: {response.choices[0].message.content}")
+            return {'status': False}
+            
+        if json_response.get("status", "false") == "false":
+            return {'status': False}
+        thought = json_response.get("thought", "")
+        function_name = json_response.get("tool_names", None)
+        args = json_response.get("args_list", {})
+        args = args.get(function_name, {}) if function_name else {}
+        function = functions.get(function_name) if function_name else None
+        
+        try:
+            result = function(**args) if function else None
+        except Exception as e:
+            logging.error(f"函数调用失败: {function_name}, 参数: {args}, 错误: {str(e)}")
+            return {'status': False}
+            
+        return {
+            'status': True,
+            'thought': thought,
+            'result': result,
+        }
+    except Exception as e:
+        logging.error(f"LLM调用异常: {str(e)}")
         return {'status': False}
-    thought = json_response.get("thought", "")
-    function_name = json_response.get("tool_names", None)
-    args = json_response.get("args_list", {})
-    args = args.get(function_name, {}) if function_name else {}
-    function = functions.get(function_name) if function_name else None
-    result = function(**args) if function else None
-    return {
-        'status': True,
-        'thought': thought,
-        'result': result,
-    }
 
 def chat_llm(username, prompt):
     """
@@ -121,40 +138,64 @@ def chat_llm(username, prompt):
     Returns:
         dict: A dictionary containing the status and data of the response.
     """
-    result = call_llm(prompt, username, functions=available_functions)
-    
-    client = OpenAI(api_key=api_key, base_url=url)
-    if result['status'] == False:
-        messages = [
-            {"role": "system", "content": "You are a professional expense tracking assistant."},
-            {"role": "user", "content": prompt}
-        ]
-        response = client.chat.completions.create(
-            model="ecnu-reasoner",
-            messages=messages,
-        )
-        return {
-            "success": True,
-            "data": response.choices[0].message.content.strip()
-        }
-    
-    messages = [
-        {"role": "system", "content": "You are a professional expense tracking assistant. Please respond to the user's request based on the function call result."},
-        {"role": "user", "content": "用户请求为：\n" + prompt + f"""
+    import logging
+    try:
+        result = call_llm(prompt, username, functions=available_functions)
+        
+        client = OpenAI(api_key=api_key, base_url=url)
+        if result['status'] == False:
+            try:
+                messages = [
+                    {"role": "system", "content": "You are a professional expense tracking assistant."},
+                    {"role": "user", "content": prompt}
+                ]
+                response = client.chat.completions.create(
+                    model="ecnu-reasoner",
+                    messages=messages,
+                )
+                return {
+                    "success": True,
+                    "data": response.choices[0].message.content.strip()
+                }
+            except Exception as e:
+                logging.error(f"直接聊天调用失败: {str(e)}")
+                return {
+                    "success": False,
+                    "data": "抱歉，我暂时无法处理您的请求，请稍后再试。"
+                }
+        
+        try:
+            messages = [
+                {"role": "system", "content": "You are a professional expense tracking assistant. Please respond to the user's request based on the function call result."},
+                {"role": "user", "content": "用户请求为：\n" + prompt + f"""
 
 根据用户请求调用函数后结果为：\n"+ {json.dumps(result, ensure_ascii=False)} + "\n\n请给一个合适的回应比如：
 "好的，我已经记录了这笔开支：\n💰 金额：25元\n🍽 分类：餐饮\n📅 时间：今天";
 "本月您总共花费了2580.00元，主要支出为餐饮580元，交通320元。";
 """},
-    ]
-    response = client.chat.completions.create(
-        model="ecnu-reasoner",
-        messages=messages,
-    )
-    return {
-        "success": True,
-        "data": response.choices[0].message.content.strip()
-    }
+            ]
+            logging.debug(f"第二阶段LLM调用 - 用户: {username}, 函数结果: {json.dumps(result, ensure_ascii=False)}")
+            response = client.chat.completions.create(
+                model="ecnu-reasoner",
+                messages=messages,
+            )
+            logging.debug(f"第二阶段LLM响应: {response.choices[0].message.content}")
+            return {
+                "success": True,
+                "data": response.choices[0].message.content.strip()
+            }
+        except Exception as e:
+            logging.error(f"函数结果处理调用失败: {str(e)}")
+            return {
+                "success": False,
+                "data": "抱歉，我暂时无法处理您的请求，请稍后再试。"
+            }
+    except Exception as e:
+        logging.error(f"chat_llm整体调用失败: {str(e)}")
+        return {
+            "success": False,
+            "data": "抱歉，我暂时无法处理您的请求，请稍后再试。"
+        }
     
 if __name__ == "__main__":
     # Example usage

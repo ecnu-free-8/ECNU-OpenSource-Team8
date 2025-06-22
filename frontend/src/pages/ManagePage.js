@@ -63,6 +63,18 @@ const ManagePage = () => {
   ];
 
   // 手动记账处理
+  // 分类映射函数 - 将用户输入的分类映射到标准分类
+  const mapCategory = (inputCategory) => {
+    const categoryMap = {
+      '游戏': '娱乐',
+      '打游戏': '娱乐',
+      '电子游戏': '娱乐',
+      '手游': '娱乐',
+      '网游': '娱乐'
+    };
+    return categoryMap[inputCategory] || inputCategory;
+  };
+
   const handleManualSubmit = async (e) => {
     e.preventDefault();
     if (!manualForm.amount || !manualForm.category) {
@@ -71,10 +83,14 @@ const ManagePage = () => {
     }
 
     try {
+      // 映射分类
+      const mappedCategory = mapCategory(manualForm.category);
+      console.log(`[DEBUG] 分类映射: ${manualForm.category} -> ${mappedCategory}`);
+      
       // 调用API保存数据
       await createTransactionMutation.mutateAsync({
         amount: manualForm.type === 'expense' ? -parseFloat(manualForm.amount) : parseFloat(manualForm.amount),
-        category: manualForm.category,
+        category: mappedCategory,
         description: manualForm.description,
         date: manualForm.date,
         type: manualForm.type
@@ -234,18 +250,27 @@ const ManagePage = () => {
                   <span>加载分类...</span>
                 </div>
               ) : (
-                <select
-                  value={manualForm.category}
-                  onChange={(e) => setManualForm({...manualForm, category: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">请选择分类</option>
-                  {categories?.map((category) => (
-                    <option key={category.id} value={category.name}>
-                      {category.icon} {category.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-2">
+                  <select
+                    value={manualForm.category}
+                    onChange={(e) => setManualForm({...manualForm, category: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">请选择分类</option>
+                    {categories?.map((category) => (
+                      <option key={category.id} value={category.name}>
+                        {category.icon} {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={manualForm.category}
+                    onChange={(e) => setManualForm({...manualForm, category: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="或手动输入分类（如：游戏）"
+                  />
+                </div>
               )}
             </div>
 

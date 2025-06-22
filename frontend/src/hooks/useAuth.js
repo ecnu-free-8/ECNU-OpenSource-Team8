@@ -15,7 +15,7 @@ export const useCurrentUser = () => {
   return useQuery({
     queryKey: AUTH_QUERY_KEYS.currentUser,
     queryFn: () => {
-      // 开发模式下跳过登录
+
       if (skipLogin) {
         return Promise.resolve({
           success: true,

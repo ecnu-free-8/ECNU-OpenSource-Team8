@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:512
 // 创建axios实例
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 600000, // 增加到10分钟，适应LLM响应时间
   withCredentials: true, // 确保发送cookie
   headers: {
     'Content-Type': 'application/json',

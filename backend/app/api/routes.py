@@ -2,7 +2,7 @@ from app.core.functions import (
     add, get_summary, get_transactions, create_transaction,
     update_transaction, delete_transaction, get_budgets,
     create_budget, get_categories, add_category, update_category,
-    delete_category,
+    delete_category, get_reports,
 )
 from app.core.llm import call_llm, chat_llm
 from app.models import *
@@ -23,6 +23,16 @@ def test():
         "success": True,
         "message": f"Hello, {username}! This is a test endpoint."
     })
+
+@bp.route('/debug/session', methods=['GET'])
+def debug_session():
+    """调试接口：查看当前session状态"""
+    return jsonify({
+        "session": dict(session),
+        "cookies": dict(request.cookies),
+        "headers": dict(request.headers),
+        "username": session.get('username', 'No user logged in')
+    }), 200
     
 @bp.route('/add', methods=['POST'])
 def add_api():
@@ -61,8 +71,10 @@ def chat():
 
     result = chat_llm(username, request.json.get('message', ''))
     try:
+        # 保存机器人回复时使用纯文本而不是JSON字符串
+        robot_content = result.get('data', '抱歉，我暂时无法处理您的请求，请稍后再试。')
         robot_chat = Chat(
-            content=json.dumps(result['data'], ensure_ascii=False),
+            content=robot_content,
             type=0,  # 机器人消息
             username=username
         )
@@ -70,7 +82,6 @@ def chat():
         db.session.commit()  # 提交事务
     except Exception as e:
         db.session.rollback()
-
         return jsonify({
             "success": False,
             "error": "保存机器人回复失败"
@@ -117,10 +128,30 @@ def get_chat_history():
 @bp.route('/summary', methods=['GET'])
 def get_summary_api():
     """获取用户当前月份的财务摘要：收入、支出、结余"""
+    # 添加调试信息
+    print("=== /api/summary 调试信息 ===")
+    print(f"Session内容: {dict(session)}")
+    print(f"Request headers: {dict(request.headers)}")
+    print(f"Request cookies: {request.cookies}")
+
     username = session.get('username', 'No user logged in')
+    print(f"获取到的username: {username}")
+
     if username == 'No user logged in':
-        return jsonify({"success": False, "error": "Missing username"}), 400
+        print("❌ 用户未登录，返回400错误")
+        return jsonify({
+            "success": False,
+            "error": "Missing username",
+            "debug_info": {
+                "session": dict(session),
+                "cookies": dict(request.cookies)
+            }
+        }), 400
+
+    print(f"✅ 用户已登录: {username}")
     result = get_summary(username)
+    print(f"get_summary结果: {result}")
+
     if result['success']:
         return jsonify(result), 200
     return jsonify(result), 400
@@ -129,13 +160,31 @@ def get_summary_api():
 @bp.route('/transactions', methods=['GET'])
 def get_transactions_api():
     """获取用户的最近交易记录，默认按时间倒序返回10条"""
+    # 添加调试信息
+    print("=== /api/transactions 调试信息 ===")
+    print(f"Session内容: {dict(session)}")
+
     username = session.get('username', 'No user logged in')
     limit = request.args.get('limit', default=10, type=int)
 
-    if username == 'No user logged in':
-        return jsonify({"success": False, "error": "Missing username"}), 400
+    print(f"获取到的username: {username}")
+    print(f"limit参数: {limit}")
 
+    if username == 'No user logged in':
+        print("❌ 用户未登录，返回400错误")
+        return jsonify({
+            "success": False,
+            "error": "Missing username",
+            "debug_info": {
+                "session": dict(session),
+                "cookies": dict(request.cookies)
+            }
+        }), 400
+
+    print(f"✅ 用户已登录: {username}")
     result = get_transactions(username, limit)
+    print(f"get_transactions结果: {result}")
+
     if result['success']:
         return jsonify(result), 200
     return jsonify(result), 400
@@ -203,10 +252,20 @@ def create_budget_api():
     if username == 'No user logged in':
         return jsonify({"success": False, "error": "Missing username"}), 400
     data = request.json
-    required_fields = ['name', 'target_amount', 'category']
+    
+    # 基本字段验证
+    required_fields = ['name', 'target_amount']
     for field in required_fields:
         if field not in data:
             return jsonify({"success": False, "error": f"Missing {field}"}), 400
+    
+    # 如果是支出预算，需要category字段；如果是储蓄目标，自动设置category为'储蓄'
+    budget_type = data.get('type', 'expense')
+    if budget_type == 'expense' and 'category' not in data:
+        return jsonify({"success": False, "error": "Missing category for expense budget"}), 400
+    elif budget_type == 'saving':
+        data['category'] = '储蓄'
+    
     result = create_budget(username=username, data=data)
     if result['success']:
         return jsonify(result), 200
@@ -231,7 +290,7 @@ def add_category_api():
     if 'name' not in data:
         return jsonify({"success": False, "error": "Missing name"}), 400
 
-    result = add_category(data)
+    result = add_category(data['name'])  # 只传递name字符串，不是整个字典
     if result['success']:
         return jsonify(result), 200
     return jsonify(result), 400
@@ -268,13 +327,24 @@ def delete_category_api(id):
 @bp.route('/reports', methods=['GET'])
 def get_reports_api():
     """根据时间范围获取支出分类统计数据"""
+    print("=== /api/reports 调试信息 ===")
+    print(f"Session内容: {dict(session)}")
+
     username = session.get('username', 'No user logged in')
     range_type = request.args.get('range', 'month')  # month/quarter/year
 
+    print(f"获取到的username: {username}")
+    print(f"range_type参数: {range_type}")
+
     if username == 'No user logged in':
+        print("❌ 用户未登录，返回400错误")
         return jsonify({"success": False, "error": "Missing username"}), 400
 
-    result = get_summary(username, range_type)
+    print(f"✅ 用户已登录: {username}")
+    # 修复：调用正确的函数 get_reports 而不是 get_summary
+    result = get_reports(username, range_type)
+    print(f"get_reports结果: {result}")
+
     if result['success']:
         return jsonify(result), 200
     return jsonify(result), 400
