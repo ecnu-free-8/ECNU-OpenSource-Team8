@@ -120,15 +120,11 @@ export const useDeleteTransaction = () => {
  */
 export const useRecentTransactions = (limit = 6) => {
   return useQuery({
-    queryKey: TRANSACTION_QUERY_KEYS.list({ limit, sortBy: 'date', sortOrder: 'desc' }),
-    queryFn: () => transactionApi.getTransactions({ 
-      limit, 
-      sortBy: 'date', 
-      sortOrder: 'desc' 
-    }),
+    queryKey: TRANSACTION_QUERY_KEYS.list({ limit }),
+    queryFn: () => transactionApi.getTransactions({ limit }),
     staleTime: 1 * 60 * 1000, // 1分钟内数据被认为是新鲜的
     cacheTime: 3 * 60 * 1000, // 3分钟缓存时间
     refetchOnWindowFocus: false,
-    select: (response) => response.data.transactions || response.data,
+    select: (response) => response.data || response,
   });
 };

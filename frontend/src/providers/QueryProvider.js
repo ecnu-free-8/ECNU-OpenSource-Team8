@@ -60,13 +60,7 @@ const QueryProvider = ({ children }) => {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {/* 开发环境下显示React Query DevTools */}
-      {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools 
-          initialIsOpen={false} 
-          position="bottom-right"
-        />
-      )}
+
     </QueryClientProvider>
   );
 };

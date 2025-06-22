@@ -112,11 +112,11 @@ const HomePage = () => {
                 </div>
                 <div className="text-right">
                   <p className={`font-semibold ${
-                    transaction.amount > 0
+                    transaction.type === 'income'
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'
                   }`}>
-                    {transaction.amount > 0 ? '+' : ''}{formatAmount(transaction.amount)}
+                    {transaction.type === 'income' ? '+' : '-'}{formatAmount(transaction.amount)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {transaction.category}

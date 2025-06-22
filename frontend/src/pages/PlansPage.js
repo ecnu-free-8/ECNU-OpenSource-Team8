@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Target, Loader2, AlertCircle, X, Save } from 'lucide-react';
 import { useBudgets, useCreateBudget } from '../hooks/useBudgets';
+import { useCategories } from '../hooks/useCategories';
 
 const PlansPage = () => {
   // 状态管理
@@ -18,6 +19,13 @@ const PlansPage = () => {
     isLoading,
     error
   } = useBudgets();
+
+  // 使用hooks获取分类数据
+  const {
+    data: categories,
+    isLoading: isLoadingCategories,
+    error: categoriesError
+  } = useCategories();
 
   // 创建预算的mutation
   const createBudgetMutation = useCreateBudget();
@@ -59,8 +67,15 @@ const PlansPage = () => {
 
   // 处理添加新预算
   const handleAddBudget = async () => {
-    if (!newBudget.name || !newBudget.target_amount || !newBudget.category) {
-      alert('请填写完整的预算信息');
+    // 验证必填字段
+    if (!newBudget.name || !newBudget.target_amount) {
+      alert('请填写预算名称和金额');
+      return;
+    }
+
+    // 支出预算需要选择分类，储蓄目标不需要
+    if (newBudget.type === 'expense' && !newBudget.category) {
+      alert('请选择预算分类');
       return;
     }
 
@@ -73,7 +88,7 @@ const PlansPage = () => {
       await createBudgetMutation.mutateAsync({
         name: newBudget.name,
         target_amount: parseFloat(newBudget.target_amount),
-        category: newBudget.category,
+        category: newBudget.type === 'saving' ? '储蓄' : newBudget.category,
         type: newBudget.type
       });
 
@@ -101,18 +116,7 @@ const PlansPage = () => {
 
 
 
-  // 预定义的分类选项
-  const categoryOptions = [
-    { value: '餐饮', label: '🍽 餐饮', icon: '🍽' },
-    { value: '交通', label: '🚗 交通', icon: '🚗' },
-    { value: '购物', label: '🛍 购物', icon: '🛍' },
-    { value: '娱乐', label: '🎮 娱乐', icon: '🎮' },
-    { value: '医疗', label: '💊 医疗', icon: '💊' },
-    { value: '教育', label: '📚 教育', icon: '📚' },
-    { value: '住房', label: '🏠 住房', icon: '🏠' },
-    { value: '储蓄', label: '💰 储蓄', icon: '💰' },
-    { value: '其他', label: '📦 其他', icon: '📦' }
-  ];
+
 
   return (
     <div className="p-4 space-y-6">
@@ -291,25 +295,39 @@ const PlansPage = () => {
                 </div>
               </div>
 
-              {/* 分类选择 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  分类
-                </label>
-                <select
-                  name="category"
-                  value={newBudget.category}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">请选择分类</option>
-                  {categoryOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* 分类选择 - 仅在支出预算时显示 */}
+              {newBudget.type === 'expense' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    分类
+                  </label>
+                  {isLoadingCategories ? (
+                    <div className="flex items-center justify-center py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      <span className="text-gray-500 dark:text-gray-400">加载分类...</span>
+                    </div>
+                  ) : categoriesError ? (
+                    <div className="flex items-center py-2 px-3 border border-red-300 dark:border-red-600 rounded-lg bg-red-50 dark:bg-red-900/20">
+                      <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
+                      <span className="text-red-700 dark:text-red-300">加载分类失败</span>
+                    </div>
+                  ) : (
+                    <select
+                      name="category"
+                      value={newBudget.category}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="">请选择分类</option>
+                      {categories?.map((category) => (
+                        <option key={category.id} value={category.name}>
+                          {category.icon} {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
 
               {/* 目标金额 */}
               <div>

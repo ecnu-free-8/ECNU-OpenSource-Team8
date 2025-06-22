@@ -25,8 +25,36 @@ const ManagePage = () => {
 
   // 分类管理状态
   const [editingCategory, setEditingCategory] = useState(null);
-  const [newCategory, setNewCategory] = useState({ name: '', icon: '', color: '#6b7280' });
+  const [newCategory, setNewCategory] = useState({ name: '', color: '#6b7280' });
   const [showAddCategory, setShowAddCategory] = useState(false);
+
+  // 默认图标映射 - 根据分类名称自动分配图标
+  const getDefaultIcon = (categoryName) => {
+    const iconMap = {
+      '餐饮': '🍽️',
+      '交通': '🚗',
+      '购物': '🛍️',
+      '娱乐': '🎮',
+      '医疗': '💊',
+      '教育': '📚',
+      '住房': '🏠',
+      '储蓄': '💰',
+      '工资': '💼',
+      '投资': '📈',
+      '礼品': '🎁',
+      '旅行': '✈️',
+      '运动': '⚽',
+      '美容': '💄',
+      '宠物': '🐕',
+      '通讯': '📱',
+      '水电': '💡',
+      '保险': '🛡️',
+      '其他': '📦'
+    };
+
+    // 如果找到匹配的图标就返回，否则返回默认图标
+    return iconMap[categoryName] || '📦';
+  };
 
   const tabs = [
     { id: 'manual', label: '记账', icon: Edit3 },
@@ -35,18 +63,34 @@ const ManagePage = () => {
   ];
 
   // 手动记账处理
+  // 分类映射函数 - 将用户输入的分类映射到标准分类
+  const mapCategory = (inputCategory) => {
+    const categoryMap = {
+      '游戏': '娱乐',
+      '打游戏': '娱乐',
+      '电子游戏': '娱乐',
+      '手游': '娱乐',
+      '网游': '娱乐'
+    };
+    return categoryMap[inputCategory] || inputCategory;
+  };
+
   const handleManualSubmit = async (e) => {
     e.preventDefault();
-    if (!manualForm.amount || !manualForm.category || !manualForm.description) {
+    if (!manualForm.amount || !manualForm.category) {
       alert('请填写所有必填字段');
       return;
     }
 
     try {
+      // 映射分类
+      const mappedCategory = mapCategory(manualForm.category);
+      console.log(`[DEBUG] 分类映射: ${manualForm.category} -> ${mappedCategory}`);
+      
       // 调用API保存数据
       await createTransactionMutation.mutateAsync({
         amount: manualForm.type === 'expense' ? -parseFloat(manualForm.amount) : parseFloat(manualForm.amount),
-        category: manualForm.category,
+        category: mappedCategory,
         description: manualForm.description,
         date: manualForm.date,
         type: manualForm.type
@@ -69,18 +113,18 @@ const ManagePage = () => {
 
   // 分类管理处理
   const handleAddCategory = async () => {
-    if (!newCategory.name || !newCategory.icon) {
-      alert('请填写分类名称和图标');
+    if (!newCategory.name) {
+      alert('请填写分类名称');
       return;
     }
 
     try {
+      // 后端只需要name字段，其他字段由后端或前端处理
       await createCategoryMutation.mutateAsync({
-        ...newCategory,
-        type: 'expense' // 默认为支出分类
+        name: newCategory.name
       });
 
-      setNewCategory({ name: '', icon: '', color: '#6b7280' });
+      setNewCategory({ name: '', color: '#6b7280' });
       setShowAddCategory(false);
     } catch (error) {
       alert('创建分类失败，请重试');
@@ -93,9 +137,15 @@ const ManagePage = () => {
 
   const handleSaveCategory = async () => {
     try {
+      // 自动更新图标
+      const updatedCategory = {
+        ...editingCategory,
+        icon: getDefaultIcon(editingCategory.name)
+      };
+
       await updateCategoryMutation.mutateAsync({
         id: editingCategory.id,
-        data: editingCategory
+        data: updatedCategory
       });
       setEditingCategory(null);
     } catch (error) {
@@ -200,32 +250,41 @@ const ManagePage = () => {
                   <span>加载分类...</span>
                 </div>
               ) : (
-                <select
-                  value={manualForm.category}
-                  onChange={(e) => setManualForm({...manualForm, category: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">请选择分类</option>
-                  {categories?.map((category) => (
-                    <option key={category.id} value={category.name}>
-                      {category.icon} {category.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-2">
+                  <select
+                    value={manualForm.category}
+                    onChange={(e) => setManualForm({...manualForm, category: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">请选择分类</option>
+                    {categories?.map((category) => (
+                      <option key={category.id} value={category.name}>
+                        {category.icon} {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={manualForm.category}
+                    onChange={(e) => setManualForm({...manualForm, category: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="或手动输入分类（如：游戏）"
+                  />
+                </div>
               )}
             </div>
 
             {/* 描述 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                描述 *
+                描述
               </label>
               <input
                 type="text"
                 value={manualForm.description}
                 onChange={(e) => setManualForm({...manualForm, description: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="请输入描述"
+                placeholder="请输入描述（可选）"
               />
             </div>
 
@@ -278,20 +337,22 @@ const ManagePage = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">添加新分类</h3>
               <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="分类名称"
-                  value={newCategory.name}
-                  onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder="图标 (如: 🍽)"
-                  value={newCategory.icon}
-                  onChange={(e) => setNewCategory({...newCategory, icon: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <div>
+                  <input
+                    type="text"
+                    placeholder="分类名称"
+                    value={newCategory.name}
+                    onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {newCategory.name && (
+                    <div className="mt-2 flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                      <span>预览图标:</span>
+                      <span className="text-lg">{getDefaultIcon(newCategory.name)}</span>
+                      <span>{newCategory.name}</span>
+                    </div>
+                  )}
+                </div>
                 <div className="flex space-x-2">
                   <button
                     onClick={handleAddCategory}
@@ -331,18 +392,21 @@ const ManagePage = () => {
                 {editingCategory && editingCategory.id === category.id ? (
                   // 编辑模式
                   <div className="space-y-3">
-                    <input
-                      type="text"
-                      value={editingCategory.name}
-                      onChange={(e) => setEditingCategory({...editingCategory, name: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      value={editingCategory.icon}
-                      onChange={(e) => setEditingCategory({...editingCategory, icon: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div>
+                      <input
+                        type="text"
+                        value={editingCategory.name}
+                        onChange={(e) => setEditingCategory({...editingCategory, name: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {editingCategory.name && (
+                        <div className="mt-2 flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                          <span>预览图标:</span>
+                          <span className="text-lg">{getDefaultIcon(editingCategory.name)}</span>
+                          <span>{editingCategory.name}</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex space-x-2">
                       <button
                         onClick={handleSaveCategory}

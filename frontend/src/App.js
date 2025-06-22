@@ -51,6 +51,7 @@ function App() {
   }
 
   // 未登录状态显示登录页面
+  // 注意：后端使用session管理登录状态，前端通过localStorage检查
   if (!isLoggedIn) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }

@@ -30,14 +30,21 @@ export const useExpenseReport = (period = 'monthly') => {
     select: (response) => {
       // 转换新API格式为组件期望的格式
       const data = response.data;
+      // 处理负数金额 - 支出金额在后端存储为负数，但图表需要正数
+      const absoluteTotal = Math.abs(data.total);
+      const absoluteCategories = data.categories.map(cat => ({
+        ...cat,
+        amount: Math.abs(cat.amount)
+      }));
+      
       return {
         title: data.title,
-        totalAmount: data.total,
-        categories: data.categories.map((cat, index) => ({
+        totalAmount: absoluteTotal,
+        categories: absoluteCategories.map((cat, index) => ({
           ...cat,
           icon: ['🍽', '🚗', '🛍', '🎮', '💊', '📦'][index] || '📦',
           color: ['#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#6b7280'][index] || '#6b7280',
-          percentage: data.total > 0 ? ((cat.amount / data.total) * 100).toFixed(1) : 0
+          percentage: absoluteTotal > 0 ? ((cat.amount / absoluteTotal) * 100).toFixed(1) : 0
         }))
       };
     },

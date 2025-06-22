@@ -20,6 +20,28 @@ export const useBudgets = () => {
     refetchOnWindowFocus: false,
     retry: 2,
     select: (response) => {
+      // 根据分类设置图标的函数
+      const getCategoryIcon = (category, type) => {
+        if (type === 'saving') {
+          return '💰'; // 储蓄目标统一使用💰
+        }
+        
+        // 支出预算根据分类设置图标
+        const categoryIcons = {
+          '餐饮': '🍽',
+          '交通': '🚗',
+          '娱乐': '🎮',
+          '购物': '🛍',
+          '医疗': '💊',
+          '住房': '🏠',
+          '教育': '📚',
+          '旅行': '✈️',
+          '其他': '📦'
+        };
+        
+        return categoryIcons[category] || '💸'; // 默认支出图标
+      };
+      
       // 转换新API格式为组件期望的格式
       return response.data.map(budget => ({
         id: budget.id,
@@ -27,8 +49,8 @@ export const useBudgets = () => {
         targetAmount: budget.target_amount,
         currentAmount: budget.current_amount,
         category: budget.category,
-        icon: '💰', // 默认图标
-        type: 'monthly' // 默认类型
+        icon: getCategoryIcon(budget.category, budget.type),
+        type: budget.type || 'expense' // 使用API返回的类型，默认为expense
       }));
     },
   });

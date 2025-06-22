@@ -1,5 +1,6 @@
 from datetime import datetime  # 用于时间字段
 from app import db
+from datetime import datetime, date
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -16,8 +17,8 @@ class Budget(db.Model):
     target_amount = db.Column(db.Float, nullable=False)
     current_amount = db.Column(db.Float, default=0)
     category = db.Column(db.String(20), nullable=False)
-    start_date = db.Column(db.Date, default=datetime.utcnow)
-    end_date = db.Column(db.Date, default=datetime.utcnow)
+    start_date = db.Column(db.Date, default=date.today)
+    end_date = db.Column(db.Date, default=date.today)
     username = db.Column(db.Integer, nullable=False)
 
 class Category(db.Model):

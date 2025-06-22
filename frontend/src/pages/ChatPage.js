@@ -52,32 +52,47 @@ const ChatPage = ({ onClose }) => {
     // 清空输入框
     setInputText('');
 
+      // 添加"正在思考"的临时消息
+    const thinkingMessage = {
+      id: Date.now() + 0.5,
+      type: 'ai',
+      content: '正在思考中...',
+      isThinking: true,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, thinkingMessage]);
+
     // 发送AI请求
     try {
       const response = await sendMessageMutation.mutateAsync(messageText);
 
-      const aiData = response.data;
-      const newMessage = {
-        id: Date.now() + 1,
-        type: 'ai',
-        content: aiData.response,
-        intent: aiData.intent,
-        transaction_id: aiData.transaction_id,
-        budget_id: aiData.budget_id,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, newMessage]);
+      // 移除"正在思考"消息，添加实际回复
+      setMessages(prev => {
+        const filtered = prev.filter(msg => !msg.isThinking);
+        const aiData = response.data;
+        const newMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: aiData.data || aiData.response || aiData,
+          intent: aiData.intent,
+          transaction_id: aiData.transaction_id,
+          budget_id: aiData.budget_id,
+          timestamp: new Date()
+        };
+        return [...filtered, newMessage];
+      });
     } catch (error) {
-      // 错误处理 - 显示错误消息
-      const errorMessage = {
-        id: Date.now() + 1,
-        type: 'ai',
-        content: '抱歉，我现在无法处理您的请求，请稍后再试。',
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, errorMessage]);
+      // 移除"正在思考"消息，显示错误消息
+      setMessages(prev => {
+        const filtered = prev.filter(msg => !msg.isThinking);
+        const errorMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: '抱歉，我现在无法处理您的请求，请稍后再试。',
+          timestamp: new Date()
+        };
+        return [...filtered, errorMessage];
+      });
     }
   };
 

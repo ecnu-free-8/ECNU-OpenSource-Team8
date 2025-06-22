@@ -1,12 +1,13 @@
 import axios from 'axios';
 
 // API基础配置
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5123/api';
 
 // 创建axios实例
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 600000, // 增加到10分钟，适应LLM响应时间
+  withCredentials: true, // 确保发送cookie
   headers: {
     'Content-Type': 'application/json',
   },
@@ -29,25 +30,10 @@ const getCurrentUsername = () => {
 // 请求拦截器
 apiClient.interceptors.request.use(
   (config) => {
-    // 添加用户名到请求中
-    const username = getCurrentUsername();
-    if (username) {
-      if (config.method === 'get' || config.method === 'delete') {
-        // GET和DELETE请求：添加到查询参数
-        config.params = { ...config.params, username };
-      } else {
-        // POST和PUT请求：添加到请求体
-        if (config.data && typeof config.data === 'object') {
-          config.data = { ...config.data, username };
-        }
-      }
-    }
-
     // 添加请求时间戳
     config.metadata = { startTime: new Date() };
 
-    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`,
-      username ? `(user: ${username})` : '(no user)');
+    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
@@ -75,9 +61,15 @@ apiClient.interceptors.response.use(
     
     // 统一错误处理
     if (error.response?.status === 401) {
-      // 未授权，清除token并跳转到登录页
-      localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      // 只有在非登录/注册接口时才跳转
+      const isAuthEndpoint = error.config?.url?.includes('/login') || error.config?.url?.includes('/register');
+      if (!isAuthEndpoint) {
+        // 未授权，清除token并跳转到登录页
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('isLoggedIn');
+        window.location.href = '/login';
+      }
     }
     
     return Promise.reject(error);
@@ -87,8 +79,8 @@ apiClient.interceptors.response.use(
 // API方法封装
 export const api = {
   // GET请求
-  get: (url, params = {}) => {
-    return apiClient.get(url, { params });
+  get: (url, config = {}) => {
+    return apiClient.get(url, config);
   },
   
   // POST请求

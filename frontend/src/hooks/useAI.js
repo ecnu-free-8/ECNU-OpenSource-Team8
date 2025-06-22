@@ -9,6 +9,10 @@ export const useSendMessage = () => {
   
   return useMutation({
     mutationFn: aiApi.sendMessage,
+    // AI聊天请求不重试，避免重复发送消息
+    retry: false,
+    // 增加超时时间，给LLM更多响应时间
+    timeout: 600000, // 10分钟
     onSuccess: (response, message) => {
       console.log('✅ AI消息发送成功:', { message, response: response.data });
       

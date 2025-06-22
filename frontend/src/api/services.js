@@ -35,6 +35,7 @@ export const financialApi = {
       const userMockData = getUserMockData(username);
       return mockApiCall(userMockData.financialSummary);
     }
+    // 后端使用session，不需要传递username
     const response = await api.get('/summary');
     return response.data;
   }
@@ -67,7 +68,14 @@ export const transactionApi = {
 
       return mockApiCall(filteredTransactions);
     }
-    const response = await api.get('/transactions', { params });
+    // 后端使用session，不需要传递username
+    // 只传递后端支持的参数
+    const supportedParams = {};
+    if (params.limit) {
+      supportedParams.limit = params.limit;
+    }
+
+    const response = await api.get('/transactions', { params: supportedParams });
     return response.data;
   },
 
@@ -82,6 +90,7 @@ export const transactionApi = {
       };
       return mockApiCall(newTransaction);
     }
+    // 后端使用session，不需要传递username
     const response = await api.post('/transactions', transactionData);
     return response.data;
   },
@@ -112,6 +121,7 @@ export const categoryApi = {
     if (USE_MOCK_DATA) {
       return mockApiCall(mockCategories);
     }
+    // 后端使用session，不需要传递username
     const response = await api.get('/categories');
     return response.data;
   },
@@ -125,6 +135,7 @@ export const categoryApi = {
       };
       return mockApiCall(newCategory);
     }
+    // 后端使用session，不需要传递username
     const response = await api.post('/categories', categoryData);
     return response.data;
   },
@@ -163,6 +174,7 @@ export const budgetApi = {
       }));
       return mockApiCall(formattedBudgets);
     }
+    // 后端使用session，不需要传递username
     const response = await api.get('/plans');
     return response.data;
   },
@@ -179,6 +191,7 @@ export const budgetApi = {
       };
       return mockApiCall(newBudget);
     }
+    // 后端使用session，不需要传递username
     const response = await api.post('/plans', budgetData);
     return response.data;
   },
@@ -226,6 +239,7 @@ export const reportApi = {
       };
       return mockApiCall(formattedData);
     }
+    // 后端使用session，不需要传递username
     const response = await api.get(`/reports?range=${range}`);
     return response.data;
   },
@@ -282,20 +296,43 @@ export const authApi = {
         throw new Error('请输入用户名和密码');
       }
     }
-    const response = await api.post('/login', credentials);
-    return response.data;
+
+    // 发送FormData格式，匹配后端 request.form.get() 期望
+    const formData = new FormData();
+    formData.append('username', credentials.username);
+    formData.append('password', credentials.password);
+
+    console.log('🚀 Sending login FormData:', {
+      username: credentials.username,
+      password: '***'
+    }); // 调试日志
+
+    try {
+      const response = await api.post('/login', formData, {
+        // FormData会自动设置正确的Content-Type，包括boundary
+        // 不要手动设置Content-Type
+      });
+
+      // 转换后端响应格式为前端期望格式
+      return {
+        success: true,
+        data: response.data.user || { username: credentials.username }
+      };
+    } catch (error) {
+      console.error('❌ Login error:', error.response?.data); // 调试日志
+      throw new Error(error.response?.data?.error || 'Login failed');
+    }
   },
 
   // 用户注册
   register: async (userData) => {
     if (USE_MOCK_DATA) {
-      const { username, email, password } = userData;
+      const { username, password } = userData;
 
       // 简单的模拟注册
-      if (username && email && password) {
+      if (username && password) {
         const newUser = {
           username: username,
-          email: email,
           registerTime: new Date().toISOString()
         };
         return mockApiCall(newUser);
@@ -303,8 +340,32 @@ export const authApi = {
         throw new Error('请填写完整的注册信息');
       }
     }
-    const response = await api.post('/register', userData);
-    return response.data;
+
+    // 发送FormData格式，匹配后端 request.form.get() 期望
+    const formData = new FormData();
+    formData.append('username', userData.username);
+    formData.append('password', userData.password);
+
+    console.log('🚀 Sending register FormData:', {
+      username: userData.username,
+      password: '***'
+    }); // 调试日志
+
+    try {
+      const response = await api.post('/register', formData, {
+        // FormData会自动设置正确的Content-Type，包括boundary
+        // 不要手动设置Content-Type
+      });
+
+      // 转换后端响应格式为前端期望格式
+      return {
+        success: true,
+        data: { username: userData.username }
+      };
+    } catch (error) {
+      console.error('❌ Register error:', error.response?.data); // 调试日志
+      throw new Error(error.response?.data?.error || 'Registration failed');
+    }
   },
 
   // 获取当前用户信息
@@ -317,8 +378,18 @@ export const authApi = {
         throw new Error('用户未登录');
       }
     }
-    const response = await api.get('/user/current');
-    return response.data;
+
+    // 后端使用session，不需要特殊的用户信息接口
+    // 直接从localStorage获取用户信息
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      return {
+        success: true,
+        data: JSON.parse(storedUser)
+      };
+    } else {
+      throw new Error('用户未登录');
+    }
   }
 };
 
@@ -365,6 +436,7 @@ export const aiApi = {
 
       return mockApiCall(aiResponse, 1000 + Math.random() * 1000);
     }
+    // 后端使用session，不需要传递username
     const response = await api.post('/chat', { message });
     return response.data;
   }

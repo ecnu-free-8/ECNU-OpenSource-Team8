@@ -52,7 +52,31 @@ def get_summary(username: str) -> dict:
 
         income = sum(t.amount for t in income_records)
         expense = sum(t.amount for t in expense_records)
-        balance = income - expense
+        balance = income + expense  # expense已经是负数，所以用加法
+        
+        print(f"[DEBUG] 财务摘要计算: username={username}")
+        print(f"[DEBUG] 时间范围: {first_day} 到 {next_month}")
+        print(f"[DEBUG] 收入记录数: {len(income_records)}, 总收入: {income}")
+        print(f"[DEBUG] 支出记录数: {len(expense_records)}, 总支出: {expense}")
+        print(f"[DEBUG] 计算结余: {income} + ({expense}) = {balance}")
+        
+        # 检查重复交易
+        income_amounts = [record.amount for record in income_records]
+        expense_amounts = [record.amount for record in expense_records]
+        
+        income_duplicates = [x for x in set(income_amounts) if income_amounts.count(x) > 1]
+        expense_duplicates = [x for x in set(expense_amounts) if expense_amounts.count(x) > 1]
+        
+        if income_duplicates:
+            print(f"[DEBUG] 发现重复收入金额: {income_duplicates}")
+        if expense_duplicates:
+            print(f"[DEBUG] 发现重复支出金额: {expense_duplicates}")
+        
+        # 打印详细的交易记录用于调试
+        for record in income_records:
+            print(f"[DEBUG] 收入记录: {record.description}, {record.amount}, {record.date}")
+        for record in expense_records:
+            print(f"[DEBUG] 支出记录: {record.description}, {record.amount}, {record.date}")
 
         return {
             "success": True,
@@ -113,8 +137,15 @@ def create_transaction(username: str, data: dict) -> dict:
         dict: 包含创建结果的字典
     """
     try:
+        print(f"[DEBUG] 创建交易: username={username}, data={data}")
+        
+        # 处理金额：支出应该存储为负数
+        amount = data['amount']
+        if data['type'] == 'expense' and amount > 0:
+            amount = -amount
+        
         new = Transaction(
-            amount=data['amount'],
+            amount=amount,
             type=data['type'],
             category=data['category'],
             description=data.get('description'),
@@ -123,10 +154,15 @@ def create_transaction(username: str, data: dict) -> dict:
         )
         db.session.add(new)
         db.session.commit()
+        
+        print(f"[DEBUG] 交易已创建: id={new.id}, type={new.type}, category={new.category}, amount={new.amount}")
 
         # 只有支出类交易才更新预算
         if new.type == 'expense':
+            print(f"[DEBUG] 支出交易，开始更新预算")
             update_budget_for_transaction(new.username, new.category, new.amount, new.date)
+        else:
+            print(f"[DEBUG] 收入交易，不更新预算")
 
         return {
             "success": True,
@@ -211,17 +247,36 @@ def update_budget_for_transaction(username, category, amount_change, transaction
     if not category or amount_change == 0:
         return
 
+    print(f"[DEBUG] 更新预算: username={username}, category={category}, amount_change={amount_change}, date={transaction_date}")
+    
+    # 将datetime转换为date进行比较
+    transaction_date_only = transaction_date.date() if hasattr(transaction_date, 'date') else transaction_date
+    
     # 找到所有该用户、该分类、时间范围内有效的预算
     budgets = Budget.query.filter(
         Budget.username == username,
         Budget.category == category,
-        Budget.start_date <= transaction_date,
-        Budget.end_date >= transaction_date
+        Budget.start_date <= transaction_date_only,
+        Budget.end_date >= transaction_date_only
     ).all()
-
+    
+    print(f"[DEBUG] 找到的预算数量: {len(budgets)}")
+    
     for budget in budgets:
+        old_amount = budget.current_amount
         budget.current_amount = max(budget.current_amount + amount_change, 0)  # 防止负值
+        print(f"[DEBUG] 预算 '{budget.name}' 更新: {old_amount} -> {budget.current_amount}")
         db.session.add(budget)
+    
+    if budgets:
+        try:
+            db.session.commit()
+            print(f"[DEBUG] 预算更新已提交到数据库")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DEBUG] 预算更新提交失败: {e}")
+    else:
+        print(f"[DEBUG] 没有找到匹配的预算，无需更新")
 
 
 def delete_transaction(id: int) -> dict:
@@ -320,8 +375,23 @@ def create_budget(username: str, data: dict) -> dict:
             end_date=end_date,
             username=username,
         )
-        print(budget)
         db.session.add(budget)
+        db.session.commit()
+        
+        # 计算该分类在预算时间范围内已有的支出交易总额
+        existing_transactions = Transaction.query.filter(
+            Transaction.username == username,
+            Transaction.category == category_name,
+            Transaction.type == 'expense',
+            Transaction.date >= start_date,
+            Transaction.date <= end_date
+        ).all()
+        
+        # 累计已有支出（注意：支出金额存储为负数）
+        total_spent = sum(abs(trans.amount) for trans in existing_transactions)
+        budget.current_amount = total_spent
+        
+        print(f"[DEBUG] 新预算创建: {budget.name}, 同步已有支出: {total_spent}")
         db.session.commit()
 
         return {
